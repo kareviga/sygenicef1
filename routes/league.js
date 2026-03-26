@@ -22,7 +22,7 @@ router.get('/standings', requireAuth, async (req, res) => {
       return +Math.min(leaderPts / d.championship_pts, max).toFixed(2);
     }
 
-    const standings = users.filter(u => !u.is_admin).map(user => {
+    const standings = users.map(user => {
       const scores = allScores.filter(r => r.user_id === user.id);
       const total = +scores.reduce((s, r) => s + r.score, 0).toFixed(1);
       const picks = allPicks.find(r => r.user_id === user.id);
