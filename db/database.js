@@ -1,105 +1,111 @@
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 
-const DB_PATH = path.join(__dirname, 'f1handicap.json');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
-function getInitialData() {
-  return {
-    users: [],
-    drivers: [],
-    user_picks: [],
-    races: [],
-    race_results: [],
-    user_race_scores: [],
-    settings: {
-      picks_locked: '0',
-      max_handicap: '30.0',
-      season_year: '2025',
-    },
-  };
-}
+const db = {
+  // ── Settings ──────────────────────────────────────────────────────────────
+  async getSetting(key) {
+    const { data } = await supabase.from('settings').select('value').eq('key', key).single();
+    return data?.value ?? null;
+  },
+  async setSetting(key, value) {
+    const { error } = await supabase
+      .from('settings')
+      .upsert({ key, value: String(value) }, { onConflict: 'key' });
+    if (error) throw error;
+  },
+  async allSettings() {
+    const { data, error } = await supabase.from('settings').select('*');
+    if (error) throw error;
+    return Object.fromEntries((data || []).map(r => [r.key, r.value]));
+  },
 
-class JsonDB {
-  constructor() {
-    if (fs.existsSync(DB_PATH)) {
-      try {
-        this.data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-      } catch {
-        this.data = getInitialData();
+  // ── Table ops ─────────────────────────────────────────────────────────────
+  async all(table) {
+    const { data, error } = await supabase.from(table).select('*');
+    if (error) throw error;
+    return data || [];
+  },
+  async find(table, pred) {
+    const rows = await db.all(table);
+    return rows.filter(pred);
+  },
+  async findOne(table, pred) {
+    const rows = await db.all(table);
+    return rows.find(pred) ?? null;
+  },
+  async count(table) {
+    const { count, error } = await supabase
+      .from(table)
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    return count || 0;
+  },
+
+  async insert(table, obj) {
+    const { data, error } = await supabase.from(table).insert(obj).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  // Upsert by a single key field (e.g. user_picks keyed on user_id)
+  async upsert(table, keyField, keyValue, data) {
+    const { error } = await supabase
+      .from(table)
+      .upsert({ [keyField]: keyValue, ...data }, { onConflict: keyField });
+    if (error) throw error;
+  },
+
+  // Upsert by composite unique constraint — table name determines conflict columns
+  async upsertBy(table, _pred, data) {
+    const conflictMap = {
+      race_results: 'race_id,driver_id',
+      user_race_scores: 'user_id,race_id',
+    };
+    const onConflict = conflictMap[table];
+    if (onConflict) {
+      const { error } = await supabase.from(table).upsert(data, { onConflict });
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from(table).insert(data);
+      if (error) throw error;
+    }
+  },
+
+  async update(table, pred, updates) {
+    const rows = await db.find(table, pred);
+    for (const row of rows) {
+      const pk = row.id
+        ? supabase.from(table).update(updates).eq('id', row.id)
+        : row.user_id
+          ? supabase.from(table).update(updates).eq('user_id', row.user_id)
+          : null;
+      if (pk) {
+        const { error } = await pk;
+        if (error) throw error;
       }
-    } else {
-      this.data = getInitialData();
-      this._save();
     }
-  }
+    return rows.length;
+  },
 
-  _save() {
-    fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2));
-  }
-
-  // Settings
-  getSetting(key) { return this.data.settings[key]; }
-  setSetting(key, value) {
-    this.data.settings[key] = String(value);
-    this._save();
-  }
-  allSettings() { return { ...this.data.settings }; }
-
-  // Table ops
-  all(table) { return this.data[table] || []; }
-  find(table, pred) { return this.all(table).filter(pred); }
-  findOne(table, pred) { return this.all(table).find(pred) || null; }
-  count(table) { return this.all(table).length; }
-
-  insert(table, obj) {
-    const arr = this.data[table];
-    const maxId = arr.reduce((m, r) => Math.max(m, r.id || 0), 0);
-    const newObj = { id: maxId + 1, created_at: new Date().toISOString(), ...obj };
-    arr.push(newObj);
-    this._save();
-    return newObj;
-  }
-
-  // Upsert by a key field (e.g. user_picks keyed on user_id)
-  upsert(table, keyField, keyValue, data) {
-    const arr = this.data[table];
-    const idx = arr.findIndex(r => r[keyField] === keyValue);
-    if (idx > -1) {
-      arr[idx] = { ...arr[idx], ...data };
-    } else {
-      arr.push({ ...data });
+  async delete(table, pred) {
+    const rows = await db.find(table, pred);
+    if (rows.length === 0) return 0;
+    const ids = rows.filter(r => r.id).map(r => r.id);
+    if (ids.length > 0) {
+      const { error } = await supabase.from(table).delete().in('id', ids);
+      if (error) throw error;
     }
-    this._save();
-  }
-
-  // Upsert by composite key
-  upsertBy(table, pred, data) {
-    const arr = this.data[table];
-    const idx = arr.findIndex(pred);
-    if (idx > -1) {
-      arr[idx] = { ...arr[idx], ...data };
-    } else {
-      arr.push({ ...data });
+    const userIds = rows.filter(r => !r.id && r.user_id).map(r => r.user_id);
+    if (userIds.length > 0) {
+      const { error } = await supabase.from(table).delete().in('user_id', userIds);
+      if (error) throw error;
     }
-    this._save();
-  }
+    return rows.length;
+  },
+};
 
-  update(table, pred, updates) {
-    let changed = 0;
-    for (const item of this.data[table]) {
-      if (pred(item)) { Object.assign(item, updates); changed++; }
-    }
-    if (changed) this._save();
-    return changed;
-  }
-
-  delete(table, pred) {
-    const before = this.data[table].length;
-    this.data[table] = this.data[table].filter(r => !pred(r));
-    const deleted = before - this.data[table].length;
-    if (deleted) this._save();
-    return deleted;
-  }
-}
-
-module.exports = new JsonDB();
+module.exports = db;

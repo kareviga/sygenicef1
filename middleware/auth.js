@@ -19,13 +19,16 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  requireAuth(req, res, () => {
-    // Always verify admin status from DB, never trust JWT alone
-    const user = db.findOne('users', u => u.id === req.user.id);
-    if (!user || !user.is_admin) {
-      return res.status(403).json({ error: 'Admin access required' });
+  requireAuth(req, res, async () => {
+    try {
+      const user = await db.findOne('users', u => u.id === req.user.id);
+      if (!user || !user.is_admin) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      next();
+    } catch (err) {
+      res.status(500).json({ error: 'Server error during auth' });
     }
-    next();
   });
 }
 
