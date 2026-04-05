@@ -414,7 +414,10 @@ async function loadStandings() {
         : `<div class="lb-rank" style="color:var(--muted)">#${i + 1}</div>`;
 
       const scoreStyle = s.is_me && i >= 3 ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : '';
-      const picks = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ') || 'Ingen valg';
+      const driverNames = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ');
+      const picks = driverNames
+        ? `${driverNames} <span style="color:var(--muted);font-size:0.72rem">(Runde ${last_round})</span>`
+        : 'Ingen valg';
 
       return `
         <div class="lb-row ${s.is_me ? 'me' : ''}">
