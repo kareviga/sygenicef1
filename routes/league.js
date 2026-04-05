@@ -96,18 +96,19 @@ router.get('/races/:raceId/detail', requireAuth, async (req, res) => {
       racePointsMap[r.driver_id] = r.points;
     }
 
-    // Cumulative championship points up to and including this race round
-    const completedIds = new Set(
-      allRaces.filter(r => r.is_completed && r.round <= race.round).map(r => r.id)
+    // HC is based on standings BEFORE this race (rounds strictly less than this one)
+    const prevIds = new Set(
+      allRaces.filter(r => r.is_completed && r.round < race.round).map(r => r.id)
     );
     const cumPts = {};
-    for (const r of allResults.filter(r => completedIds.has(r.race_id))) {
+    for (const r of allResults.filter(r => prevIds.has(r.race_id))) {
       cumPts[r.driver_id] = (cumPts[r.driver_id] || 0) + r.points;
     }
 
-    const leaderPts = Math.max(...Object.values(cumPts), 1);
+    const leaderPts = Math.max(...Object.values(cumPts), 0);
 
     function getHC(driverId) {
+      if (leaderPts <= 0) return 1.0; // R1: no prior races, everyone ×1
       const pts = cumPts[driverId] || 0;
       if (pts <= 0) return maxHandicap;
       return +Math.min(leaderPts / pts, maxHandicap).toFixed(2);

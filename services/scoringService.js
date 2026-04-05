@@ -11,24 +11,36 @@ async function computeRaceScores(raceId) {
   for (const r of results) racePoints[r.driver_id] = r.points;
 
   const completedRaces = await db.find('races', r => r.is_completed);
-  const allRelevantRaceIds = new Set([...completedRaces.map(r => r.id), raceId]);
+  // prevRaceIds: races completed BEFORE this one — used for HC (so R1 gets HC=1 for all)
+  const prevRaceIds = new Set(completedRaces.map(r => r.id));
+  // allRaceIds: includes current race — used only for updating championship_pts
+  const allRaceIds = new Set([...prevRaceIds, raceId]);
 
-  const allResults = await db.find('race_results', r => allRelevantRaceIds.has(r.race_id));
+  const allResults = await db.find('race_results', r => allRaceIds.has(r.race_id));
+
+  // Cumulative points from PREVIOUS races only → determines HC this round
+  const prevCumPts = {};
+  for (const r of allResults.filter(r => prevRaceIds.has(r.race_id))) {
+    prevCumPts[r.driver_id] = (prevCumPts[r.driver_id] || 0) + r.points;
+  }
+
+  // Cumulative including this race → stored as championship_pts
   const cumPts = {};
   for (const r of allResults) {
     cumPts[r.driver_id] = (cumPts[r.driver_id] || 0) + r.points;
   }
 
-  const leaderPts = Math.max(...Object.values(cumPts), 1);
+  const leaderPts = Math.max(...Object.values(prevCumPts), 0);
   const maxHandicap = parseFloat(await db.getSetting('max_handicap') || '30');
 
   function getHandicap(driverId) {
-    const pts = cumPts[driverId] || 0;
+    if (leaderPts <= 0) return 1.0; // R1: no prior races, everyone gets ×1
+    const pts = prevCumPts[driverId] || 0;
     if (pts <= 0) return maxHandicap;
     return Math.min(leaderPts / pts, maxHandicap);
   }
 
-  // Update cached championship_pts on each driver
+  // Update cached championship_pts (cumulative including this race)
   for (const [driverId, pts] of Object.entries(cumPts)) {
     await db.update('drivers', d => d.id === parseInt(driverId), { championship_pts: pts });
   }

@@ -268,9 +268,9 @@ function renderDetailTable(drivers, raceRow) {
             return `
               <tr${mine ? ' class="my-driver-row"' : ''}>
                 <td><span style="color:${mine ? d.team_color : 'var(--muted)'};${mine ? 'font-weight:700' : ''}">${d.short_name}</span></td>
-                <td>${d.race_pts}</td>
-                <td>${d.hc}</td>
-                <td${mine ? ' style="color:var(--cyan);font-family:\'VT323\',monospace;font-size:1rem"' : ''}>${d.hc_pts}</td>
+                <td>${Math.round(d.race_pts)}</td>
+                <td>${parseFloat(d.hc).toFixed(1)}</td>
+                <td${mine ? ' style="color:var(--cyan);font-family:\'VT323\',monospace;font-size:1rem"' : ''}>${parseFloat(d.hc_pts).toFixed(1)}</td>
               </tr>`;
           }).join('')}
         </tbody>
