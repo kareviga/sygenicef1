@@ -6,11 +6,11 @@ const { getRaceDeadline, isAutoLocked } = require('../utils/deadline');
 // GET /api/league/standings
 router.get('/standings', requireAuth, async (req, res) => {
   try {
-    const [users, drivers, allPicks, allScores] = await Promise.all([
+    const [users, drivers, allScores, races] = await Promise.all([
       db.all('users'),
       db.all('drivers'),
-      db.all('user_picks'),
       db.all('user_race_scores'),
+      db.all('races'),
     ]);
 
     const sortedDrivers = drivers.sort((a, b) => b.championship_pts - a.championship_pts);
@@ -23,12 +23,19 @@ router.get('/standings', requireAuth, async (req, res) => {
       return +Math.min(leaderPts / d.championship_pts, max).toFixed(2);
     }
 
+    // Last completed non-cancelled race — used to show which drivers each user had
+    const lastRace = races
+      .filter(r => r.is_completed && !r.cancelled)
+      .sort((a, b) => b.round - a.round)[0] || null;
+
     const standings = users.map(user => {
       const scores = allScores.filter(r => r.user_id === user.id);
       const total = +scores.reduce((s, r) => s + r.score, 0).toFixed(1);
-      const picks = allPicks.find(r => r.user_id === user.id);
-      const d1 = picks?.driver1_id ? drivers.find(d => d.id === picks.driver1_id) : null;
-      const d2 = picks?.driver2_id ? drivers.find(d => d.id === picks.driver2_id) : null;
+
+      // Drivers from the last completed race (what they actually raced with)
+      const lastScore = lastRace ? scores.find(s => s.race_id === lastRace.id) : null;
+      const d1 = lastScore?.driver1_id ? drivers.find(d => d.id === lastScore.driver1_id) : null;
+      const d2 = lastScore?.driver2_id ? drivers.find(d => d.id === lastScore.driver2_id) : null;
 
       return {
         user_id: user.id,
@@ -41,7 +48,7 @@ router.get('/standings', requireAuth, async (req, res) => {
     });
 
     standings.sort((a, b) => b.score - a.score);
-    res.json(standings);
+    res.json({ standings, last_round: lastRace?.round || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

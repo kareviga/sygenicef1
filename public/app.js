@@ -138,7 +138,7 @@ function startCountdown(deadlineDate) {
 // ── Mitt lag ──────────────────────────────────────────────────────────────
 async function loadTeam() {
   try {
-    const [picks, races, settings, standings] = await Promise.all([
+    const [picks, races, settings, standingsData] = await Promise.all([
       api('/api/picks/my'),
       api('/api/league/my-races'),
       api('/api/league/settings'),
@@ -148,6 +148,7 @@ async function loadTeam() {
     picksLocked = settings.picks_locked;
     updateHeaderPill(picksLocked);
 
+    const standings = standingsData.standings;
     const myStanding = standings.find(s => s.is_me);
     const rank = standings.findIndex(s => s.is_me) + 1;
     document.getElementById('team-pts').textContent = myStanding?.score ?? '0';
@@ -397,13 +398,12 @@ async function savePicks() {
 // ── Tabell ────────────────────────────────────────────────────────────────
 async function loadStandings() {
   try {
-    const [standings, settings] = await Promise.all([
-      api('/api/league/standings'),
-      api('/api/league/settings'),
-    ]);
+    const data = await api('/api/league/standings');
+    const { standings, last_round } = data;
 
-    document.getElementById('lb-sub').textContent =
-      `${standings.length} spillere · Etter runde ${settings.completed_races}`;
+    document.getElementById('lb-sub').textContent = last_round
+      ? `${standings.length} spillere · Førervalg runde ${last_round}`
+      : `${standings.length} spillere`;
 
     const medals = ['🥇', '🥈', '🥉'];
     const colors = ['gold', 'silver', 'bronze'];
@@ -413,7 +413,6 @@ async function loadStandings() {
         ? `<div class="lb-rank ${colors[i]}">${medals[i]}</div>`
         : `<div class="lb-rank" style="color:var(--muted)">#${i + 1}</div>`;
 
-      const scoreClass = i < 3 ? colors[i] : (s.is_me ? '' : '');
       const scoreStyle = s.is_me && i >= 3 ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : '';
       const picks = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ') || 'Ingen valg';
 
@@ -424,7 +423,7 @@ async function loadStandings() {
             <div class="lb-name ${s.is_me ? 'me' : ''}">${s.username}${s.is_me ? ' (deg)' : ''}</div>
             <div class="lb-picks">${picks}</div>
           </div>
-          <div class="lb-score ${scoreClass}" style="${scoreStyle}">${s.score}</div>
+          <div class="lb-score ${i < 3 ? colors[i] : ''}" style="${scoreStyle}">${s.score}</div>
         </div>`;
     }).join('') || '<div class="empty">Ingen spillere ennå</div>';
   } catch (err) {
