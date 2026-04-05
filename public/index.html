@@ -249,10 +249,13 @@
   }
   .race-row.expandable { cursor: pointer; }
   .race-row.expandable:hover { border-color: var(--purple); }
+  .race-drivers-sub { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+  .race-drivers-sub.no-picks { color: var(--border); }
   .race-detail {
     background: rgba(0,0,0,0.25); border: 1px solid var(--border);
     border-top: none; border-radius: 0 0 6px 6px;
     margin-top: -6px; margin-bottom: 6px; padding: 8px 10px;
+    overflow-x: auto;
   }
   .detail-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   .detail-table th {
@@ -262,6 +265,7 @@
   }
   .detail-table th:hover { color: var(--sub); }
   .detail-table td { padding: 5px 6px; color: var(--sub); }
+  .my-driver-row td { background: rgba(0,255,255,0.05); }
 
   /* ── PICKS GRID ── */
   .pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

@@ -9,6 +9,7 @@ let adminRaces = [];
 let teamRacesData = [];
 let expandedRaceIds = new Set();
 let raceDetailSort = { col: 'race_pts', dir: 'desc' };
+let raceDetailCache = {};
 let countdownInterval = null;
 
 // ── API helper ───────────────────────────────────────────────────────────
@@ -215,55 +216,26 @@ function renderTeamRaces() {
   racesEl.innerHTML = teamRacesData.map(r => {
     const expanded = expandedRaceIds.has(r.race_id);
 
-    const drivers = [
-      {
-        name: r.driver1_name,
-        race_pts: r.driver1_race_pts ?? 0,
-        hc: r.driver1_hc ?? 1,
-        hc_pts: +((r.driver1_race_pts ?? 0) * (r.driver1_hc ?? 1)).toFixed(2),
-      },
-      {
-        name: r.driver2_name,
-        race_pts: r.driver2_race_pts ?? 0,
-        hc: r.driver2_hc ?? 1,
-        hc_pts: +((r.driver2_race_pts ?? 0) * (r.driver2_hc ?? 1)).toFixed(2),
-      },
-    ];
+    const driverSub = r.driver1_name
+      ? `<div class="race-drivers-sub">${r.driver1_name.split(' ').pop()} · ${r.driver2_name.split(' ').pop()}</div>`
+      : `<div class="race-drivers-sub no-picks">Ingen valg</div>`;
 
-    drivers.sort((a, b) => {
-      const av = a[raceDetailSort.col], bv = b[raceDetailSort.col];
-      const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
-      return raceDetailSort.dir === 'asc' ? cmp : -cmp;
-    });
-
-    const arrow = col => raceDetailSort.col === col ? (raceDetailSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
-
-    const detailHTML = expanded ? `
-      <div class="race-detail" onclick="event.stopPropagation()">
-        <table class="detail-table">
-          <thead><tr>
-            <th onclick="sortRaceDetail('name')">Racer${arrow('name')}</th>
-            <th onclick="sortRaceDetail('race_pts')">Race pts${arrow('race_pts')}</th>
-            <th onclick="sortRaceDetail('hc')">HC ×${arrow('hc')}</th>
-            <th onclick="sortRaceDetail('hc_pts')">HC pts${arrow('hc_pts')}</th>
-          </tr></thead>
-          <tbody>
-            ${drivers.map(d => `
-              <tr>
-                <td>${d.name}</td>
-                <td>${d.race_pts}</td>
-                <td>${d.hc}</td>
-                <td style="color:var(--cyan);font-family:'VT323',monospace;font-size:1rem">${d.hc_pts}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>` : '';
+    const detail = raceDetailCache[r.race_id];
+    let detailHTML = '';
+    if (expanded) {
+      detailHTML = detail
+        ? renderDetailTable(detail, r)
+        : '<div class="race-detail" style="text-align:center;padding:16px;color:var(--muted);font-size:0.82rem">Laster…</div>';
+    }
 
     return `
       <div class="race-row expandable" onclick="toggleRaceDetail(${r.race_id})">
-        <div><span class="race-round">R${r.round}</span><span class="race-name">${r.race_name}</span></div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="race-pts">+${r.score} pts</div>
+        <div>
+          <div><span class="race-round">R${r.round}</span><span class="race-name">${r.race_name}</span></div>
+          ${driverSub}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div class="race-pts">${r.score > 0 ? '+' : ''}${r.score} pts</div>
           <span style="color:var(--muted);font-size:0.7rem;line-height:1">${expanded ? '▲' : '▼'}</span>
         </div>
       </div>
@@ -271,10 +243,59 @@ function renderTeamRaces() {
   }).join('');
 }
 
-function toggleRaceDetail(raceId) {
-  if (expandedRaceIds.has(raceId)) expandedRaceIds.delete(raceId);
-  else expandedRaceIds.add(raceId);
-  renderTeamRaces();
+function renderDetailTable(drivers, raceRow) {
+  const sorted = [...drivers].sort((a, b) => {
+    const av = a[raceDetailSort.col], bv = b[raceDetailSort.col];
+    const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+    return raceDetailSort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  const arrow = col => raceDetailSort.col === col ? (raceDetailSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+  const isMine = id => id === raceRow.driver1_id || id === raceRow.driver2_id;
+
+  return `
+    <div class="race-detail" onclick="event.stopPropagation()">
+      <table class="detail-table">
+        <thead><tr>
+          <th onclick="sortRaceDetail('short_name')">Racer${arrow('short_name')}</th>
+          <th onclick="sortRaceDetail('race_pts')">Race pts${arrow('race_pts')}</th>
+          <th onclick="sortRaceDetail('hc')">HC ×${arrow('hc')}</th>
+          <th onclick="sortRaceDetail('hc_pts')">HC pts${arrow('hc_pts')}</th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(d => {
+            const mine = isMine(d.id);
+            return `
+              <tr${mine ? ' class="my-driver-row"' : ''}>
+                <td><span style="color:${mine ? d.team_color : 'var(--muted)'};${mine ? 'font-weight:700' : ''}">${d.short_name}</span></td>
+                <td>${d.race_pts}</td>
+                <td>${d.hc}</td>
+                <td${mine ? ' style="color:var(--cyan);font-family:\'VT323\',monospace;font-size:1rem"' : ''}>${d.hc_pts}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function toggleRaceDetail(raceId) {
+  if (expandedRaceIds.has(raceId)) {
+    expandedRaceIds.delete(raceId);
+    renderTeamRaces();
+    return;
+  }
+  expandedRaceIds.add(raceId);
+  renderTeamRaces(); // show loading spinner
+  try {
+    if (!raceDetailCache[raceId]) {
+      raceDetailCache[raceId] = await api(`/api/league/races/${raceId}/detail`);
+    }
+    renderTeamRaces();
+  } catch (err) {
+    showToast(err.message, 'error');
+    expandedRaceIds.delete(raceId);
+    renderTeamRaces();
+  }
 }
 
 function sortRaceDetail(col) {
@@ -282,7 +303,7 @@ function sortRaceDetail(col) {
     raceDetailSort.dir = raceDetailSort.dir === 'asc' ? 'desc' : 'asc';
   } else {
     raceDetailSort.col = col;
-    raceDetailSort.dir = col === 'name' ? 'asc' : 'desc';
+    raceDetailSort.dir = col === 'short_name' ? 'asc' : 'desc';
   }
   renderTeamRaces();
 }

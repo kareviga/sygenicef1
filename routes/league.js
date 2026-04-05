@@ -52,13 +52,81 @@ router.get('/my-races', requireAuth, async (req, res) => {
   try {
     const [scores, races] = await Promise.all([
       db.find('user_race_scores', r => r.user_id === req.user.id),
-      db.all('races'),
+      db.find('races', r => r.is_completed && !r.cancelled),
     ]);
-    const enriched = scores.map(s => {
-      const race = races.find(r => r.id === s.race_id);
-      return { ...s, round: race?.round, race_name: race?.name };
-    }).sort((a, b) => b.round - a.round);
-    res.json(enriched);
+    const result = races
+      .sort((a, b) => b.round - a.round)
+      .map(race => {
+        const s = scores.find(s => s.race_id === race.id);
+        return {
+          race_id: race.id,
+          round: race.round,
+          race_name: race.name,
+          score: s?.score ?? 0,
+          driver1_id: s?.driver1_id ?? null,
+          driver2_id: s?.driver2_id ?? null,
+          driver1_name: s?.driver1_name ?? null,
+          driver2_name: s?.driver2_name ?? null,
+        };
+      });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/league/races/:raceId/detail
+router.get('/races/:raceId/detail', requireAuth, async (req, res) => {
+  try {
+    const raceId = parseInt(req.params.raceId);
+    const [race, allRaces, allResults, allDrivers, maxSetting] = await Promise.all([
+      db.findOne('races', r => r.id === raceId),
+      db.all('races'),
+      db.all('race_results'),
+      db.all('drivers'),
+      db.getSetting('max_handicap'),
+    ]);
+    if (!race) return res.status(404).json({ error: 'Race not found' });
+
+    const maxHandicap = parseFloat(maxSetting || '30');
+
+    // Points scored in this race
+    const racePointsMap = {};
+    for (const r of allResults.filter(r => r.race_id === raceId)) {
+      racePointsMap[r.driver_id] = r.points;
+    }
+
+    // Cumulative championship points up to and including this race round
+    const completedIds = new Set(
+      allRaces.filter(r => r.is_completed && r.round <= race.round).map(r => r.id)
+    );
+    const cumPts = {};
+    for (const r of allResults.filter(r => completedIds.has(r.race_id))) {
+      cumPts[r.driver_id] = (cumPts[r.driver_id] || 0) + r.points;
+    }
+
+    const leaderPts = Math.max(...Object.values(cumPts), 1);
+
+    function getHC(driverId) {
+      const pts = cumPts[driverId] || 0;
+      if (pts <= 0) return maxHandicap;
+      return +Math.min(leaderPts / pts, maxHandicap).toFixed(2);
+    }
+
+    const drivers = allDrivers.map(d => {
+      const race_pts = racePointsMap[d.id] || 0;
+      const hc = getHC(d.id);
+      return {
+        id: d.id,
+        short_name: d.short_name,
+        team_color: d.team_color,
+        race_pts,
+        hc,
+        hc_pts: +(race_pts * hc).toFixed(2),
+      };
+    });
+
+    res.json(drivers);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
