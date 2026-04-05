@@ -50,12 +50,20 @@ async function computeRaceScores(raceId) {
 
     const pts1 = racePoints[d1.id] || 0;
     const pts2 = racePoints[d2.id] || 0;
-    const score = +(pts1 * getHandicap(d1.id) + pts2 * getHandicap(d2.id)).toFixed(2);
+    const hc1 = getHandicap(d1.id);
+    const hc2 = getHandicap(d2.id);
+    const score = +(pts1 * hc1 + pts2 * hc2).toFixed(2);
 
     await db.upsertBy(
       'user_race_scores',
       r => r.user_id === user.id && r.race_id === raceId,
-      { user_id: user.id, race_id: raceId, score, driver1_id: d1.id, driver2_id: d2.id, driver1_name: d1.name, driver2_name: d2.name }
+      {
+        user_id: user.id, race_id: raceId, score,
+        driver1_id: d1.id, driver2_id: d2.id,
+        driver1_name: d1.name, driver2_name: d2.name,
+        driver1_race_pts: pts1, driver1_hc: +hc1.toFixed(2),
+        driver2_race_pts: pts2, driver2_hc: +hc2.toFixed(2),
+      }
     );
   }
 

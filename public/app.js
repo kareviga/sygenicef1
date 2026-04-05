@@ -6,6 +6,9 @@ let selectedDriverIds = [];
 let currentPicks = { driver1: null, driver2: null };
 let picksLocked = false;
 let adminRaces = [];
+let teamRacesData = [];
+let expandedRaceIds = new Set();
+let raceDetailSort = { col: 'race_pts', dir: 'desc' };
 
 // ── API helper ───────────────────────────────────────────────────────────
 async function api(path, options = {}) {
@@ -133,14 +136,8 @@ async function loadTeam() {
         [picks.driver1, picks.driver2].filter(Boolean).map(driverCardHTML).join('');
     }
 
-    const racesEl = document.getElementById('team-races');
-    racesEl.innerHTML = races.length === 0
-      ? '<div class="empty">Ingen fullførte race ennå</div>'
-      : races.map(r => `
-          <div class="race-row">
-            <div><span class="race-round">R${r.round}</span><span class="race-name">${r.race_name}</span></div>
-            <div class="race-pts">+${r.score} pts</div>
-          </div>`).join('');
+    teamRacesData = races;
+    renderTeamRaces();
 
     const nextEl = document.getElementById('team-next');
     if (settings.next_race) {
@@ -176,6 +173,88 @@ function driverCardHTML(d) {
         <span class="hf">×${d.handicap}</span>
       </div>
     </div>`;
+}
+
+function renderTeamRaces() {
+  const racesEl = document.getElementById('team-races');
+  if (teamRacesData.length === 0) {
+    racesEl.innerHTML = '<div class="empty">Ingen fullførte race ennå</div>';
+    return;
+  }
+
+  racesEl.innerHTML = teamRacesData.map(r => {
+    const expanded = expandedRaceIds.has(r.race_id);
+
+    const drivers = [
+      {
+        name: r.driver1_name,
+        race_pts: r.driver1_race_pts ?? 0,
+        hc: r.driver1_hc ?? 1,
+        hc_pts: +((r.driver1_race_pts ?? 0) * (r.driver1_hc ?? 1)).toFixed(2),
+      },
+      {
+        name: r.driver2_name,
+        race_pts: r.driver2_race_pts ?? 0,
+        hc: r.driver2_hc ?? 1,
+        hc_pts: +((r.driver2_race_pts ?? 0) * (r.driver2_hc ?? 1)).toFixed(2),
+      },
+    ];
+
+    drivers.sort((a, b) => {
+      const av = a[raceDetailSort.col], bv = b[raceDetailSort.col];
+      const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+      return raceDetailSort.dir === 'asc' ? cmp : -cmp;
+    });
+
+    const arrow = col => raceDetailSort.col === col ? (raceDetailSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+
+    const detailHTML = expanded ? `
+      <div class="race-detail" onclick="event.stopPropagation()">
+        <table class="detail-table">
+          <thead><tr>
+            <th onclick="sortRaceDetail('name')">Racer${arrow('name')}</th>
+            <th onclick="sortRaceDetail('race_pts')">Race pts${arrow('race_pts')}</th>
+            <th onclick="sortRaceDetail('hc')">HC ×${arrow('hc')}</th>
+            <th onclick="sortRaceDetail('hc_pts')">HC pts${arrow('hc_pts')}</th>
+          </tr></thead>
+          <tbody>
+            ${drivers.map(d => `
+              <tr>
+                <td>${d.name}</td>
+                <td>${d.race_pts}</td>
+                <td>${d.hc}</td>
+                <td style="color:var(--cyan);font-family:'VT323',monospace;font-size:1rem">${d.hc_pts}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '';
+
+    return `
+      <div class="race-row expandable" onclick="toggleRaceDetail(${r.race_id})">
+        <div><span class="race-round">R${r.round}</span><span class="race-name">${r.race_name}</span></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="race-pts">+${r.score} pts</div>
+          <span style="color:var(--muted);font-size:0.7rem;line-height:1">${expanded ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      ${detailHTML}`;
+  }).join('');
+}
+
+function toggleRaceDetail(raceId) {
+  if (expandedRaceIds.has(raceId)) expandedRaceIds.delete(raceId);
+  else expandedRaceIds.add(raceId);
+  renderTeamRaces();
+}
+
+function sortRaceDetail(col) {
+  if (raceDetailSort.col === col) {
+    raceDetailSort.dir = raceDetailSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    raceDetailSort.col = col;
+    raceDetailSort.dir = col === 'name' ? 'asc' : 'desc';
+  }
+  renderTeamRaces();
 }
 
 // ── Sjåfører / Valg ───────────────────────────────────────────────────────
@@ -319,7 +398,7 @@ async function loadAdmin() {
 
     document.getElementById('admin-race-select').innerHTML =
       '<option value="">— Velg race —</option>' +
-      races.map(r =>
+      races.filter(r => !r.cancelled).map(r =>
         `<option value="${r.id}">${r.is_completed ? '✓' : '○'} R${r.round} ${r.name}</option>`
       ).join('');
 
@@ -572,7 +651,7 @@ async function loadCalendar() {
               <span style="font-size:0.9rem;font-weight:600">${r.name}</span>
               ${sprintBadge}
             </div>
-            <div style="font-size:0.76rem;color:var(--muted);margin-top:3px">${r.circuit} · ${formatDate(r.date)}</div>
+            <div style="font-size:0.76rem;color:var(--muted);margin-top:3px">${r.circuit} · ${dateRange(r.date, r.has_sprint)}</div>
           </div>
           ${statusIcon}
         </div>`;
@@ -591,6 +670,18 @@ function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
   return d.toLocaleDateString('nb-NO', { month: 'short', day: 'numeric' });
+}
+
+function dateRange(dateStr, hasSprint) {
+  if (!dateStr) return '';
+  const raceDay = new Date(dateStr + 'T00:00:00');
+  const startDay = new Date(raceDay);
+  startDay.setDate(startDay.getDate() - (hasSprint ? 3 : 2));
+  if (startDay.getMonth() === raceDay.getMonth()) {
+    const mon = raceDay.toLocaleDateString('nb-NO', { month: 'short' });
+    return `${startDay.getDate()}–${raceDay.getDate()} ${mon}`;
+  }
+  return `${formatDate(startDay.toISOString().split('T')[0])} – ${formatDate(dateStr)}`;
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────

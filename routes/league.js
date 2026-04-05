@@ -70,7 +70,7 @@ router.get('/settings', requireAuth, async (req, res) => {
       db.getSetting('picks_locked'),
       db.all('races'),
     ]);
-    const sorted = races.sort((a, b) => a.round - b.round);
+    const sorted = races.filter(r => !r.cancelled).sort((a, b) => a.round - b.round);
     const nextRace = sorted.find(r => !r.is_completed) || null;
     const completedCount = sorted.filter(r => r.is_completed).length;
     res.json({ picks_locked: picksLocked === '1', next_race: nextRace, completed_races: completedCount });
@@ -82,7 +82,9 @@ router.get('/settings', requireAuth, async (req, res) => {
 // GET /api/league/calendar
 router.get('/calendar', requireAuth, async (req, res) => {
   try {
-    const races = (await db.all('races')).sort((a, b) => a.round - b.round);
+    const races = (await db.all('races'))
+      .filter(r => !r.cancelled)
+      .sort((a, b) => a.round - b.round);
     res.json(races);
   } catch (err) {
     res.status(500).json({ error: err.message });

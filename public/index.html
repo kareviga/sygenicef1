@@ -247,6 +247,21 @@
     color: var(--green); font-size: 1.3rem;
     text-shadow: 0 0 8px var(--green);
   }
+  .race-row.expandable { cursor: pointer; }
+  .race-row.expandable:hover { border-color: var(--purple); }
+  .race-detail {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+    border-top: none; border-radius: 0 0 6px 6px;
+    margin-top: -6px; margin-bottom: 6px; padding: 8px 10px;
+  }
+  .detail-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .detail-table th {
+    color: var(--muted); font-family: 'VT323', monospace; font-size: 0.88rem;
+    letter-spacing: 0.06em; text-align: left; padding: 4px 6px;
+    cursor: pointer; white-space: nowrap;
+  }
+  .detail-table th:hover { color: var(--sub); }
+  .detail-table td { padding: 5px 6px; color: var(--sub); }
 
   /* ── PICKS GRID ── */
   .pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
