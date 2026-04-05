@@ -46,3 +46,43 @@ INSERT INTO races (round, name, circuit, date, is_completed, has_sprint, cancell
 (20, 'Las Vegas GP',       'Las Vegas',   '2026-11-21', false, false, false),
 (21, 'Qatar GP',           'Lusail',      '2026-11-29', false, true,  false),
 (22, 'Abu Dhabi GP',       'Yas Marina',  '2026-12-06', false, false, false);
+
+-- 6. Set R3 picks for each user (R1+R2 had no picks — already empty after step 5)
+--    Run AFTER step 5. These picks will be used when admin enters R3 results.
+DELETE FROM user_picks;
+
+INSERT INTO user_picks (user_id, driver1_id, driver2_id, swaps_used, last_updated)
+VALUES (
+  (SELECT id FROM users WHERE username ILIKE 'Fjordkatt'),
+  (SELECT id FROM drivers WHERE short_name ILIKE 'Piastri'),
+  (SELECT id FROM drivers WHERE short_name ILIKE 'Ocon'),
+  0, NOW()
+)
+ON CONFLICT (user_id) DO UPDATE SET
+  driver1_id = EXCLUDED.driver1_id,
+  driver2_id = EXCLUDED.driver2_id,
+  last_updated = NOW();
+
+INSERT INTO user_picks (user_id, driver1_id, driver2_id, swaps_used, last_updated)
+VALUES (
+  (SELECT id FROM users WHERE username ILIKE 'tacomann'),
+  (SELECT id FROM drivers WHERE short_name ILIKE 'Piastri'),
+  (SELECT id FROM drivers WHERE short_name ILIKE 'Sainz'),
+  0, NOW()
+)
+ON CONFLICT (user_id) DO UPDATE SET
+  driver1_id = EXCLUDED.driver1_id,
+  driver2_id = EXCLUDED.driver2_id,
+  last_updated = NOW();
+
+INSERT INTO user_picks (user_id, driver1_id, driver2_id, swaps_used, last_updated)
+VALUES (
+  (SELECT id FROM users WHERE username ILIKE 'lazerbrus'),
+  (SELECT id FROM drivers WHERE short_name ILIKE 'Lindblad'),
+  (SELECT id FROM drivers WHERE short_name ILIKE 'Piastri'),
+  0, NOW()
+)
+ON CONFLICT (user_id) DO UPDATE SET
+  driver1_id = EXCLUDED.driver1_id,
+  driver2_id = EXCLUDED.driver2_id,
+  last_updated = NOW();
