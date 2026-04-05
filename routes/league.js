@@ -15,7 +15,10 @@ router.get('/standings', requireAuth, async (req, res) => {
 
     const sortedDrivers = drivers.sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = sortedDrivers[0]?.championship_pts || 0;
-    const max = parseFloat(await db.getSetting('max_handicap') || '50');
+    const nextRace = races.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
+    const lastRaceForMax = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => b.round - a.round)[0] || null;
+    const maxRound = nextRace?.round || (lastRaceForMax?.round ? lastRaceForMax.round + 1 : 1);
+    const max = maxRound * 10;
 
     function handicap(d) {
       if (leaderPts <= 0) return 1.0;
@@ -86,16 +89,15 @@ router.get('/my-races', requireAuth, async (req, res) => {
 router.get('/races/:raceId/detail', requireAuth, async (req, res) => {
   try {
     const raceId = parseInt(req.params.raceId);
-    const [race, allRaces, allResults, allDrivers, maxSetting] = await Promise.all([
+    const [race, allRaces, allResults, allDrivers] = await Promise.all([
       db.findOne('races', r => r.id === raceId),
       db.all('races'),
       db.all('race_results'),
       db.all('drivers'),
-      db.getSetting('max_handicap'),
     ]);
     if (!race) return res.status(404).json({ error: 'Race not found' });
 
-    const maxHandicap = parseFloat(maxSetting || '50');
+    const maxHandicap = race.round * 10;
 
     // Points scored in this race
     const racePointsMap = {};

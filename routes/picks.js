@@ -16,9 +16,16 @@ function enrichDriver(d, leaderPts, maxHandicap) {
 // GET /api/picks/drivers
 router.get('/drivers', requireAuth, async (req, res) => {
   try {
-    const drivers = (await db.all('drivers')).sort((a, b) => b.championship_pts - a.championship_pts);
+    const [drivers, races] = await Promise.all([
+      db.all('drivers'),
+      db.all('races'),
+    ]);
+    drivers.sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = drivers[0]?.championship_pts || 0;
-    const max = parseFloat(await db.getSetting('max_handicap') || '50');
+    const nextRace = races.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
+    const lastRace = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => b.round - a.round)[0] || null;
+    const maxRound = nextRace?.round || (lastRace?.round ? lastRace.round + 1 : 1);
+    const max = maxRound * 10;
     res.json(drivers.map(d => enrichDriver(d, leaderPts, max)));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -31,9 +38,13 @@ router.get('/my', requireAuth, async (req, res) => {
     const picks = await db.findOne('user_picks', r => r.user_id === req.user.id);
     if (!picks) return res.json({ driver1: null, driver2: null, swaps_used: 0 });
 
-    const drivers = (await db.all('drivers')).sort((a, b) => b.championship_pts - a.championship_pts);
+    const [drivers, races] = await Promise.all([db.all('drivers'), db.all('races')]);
+    drivers.sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = drivers[0]?.championship_pts || 0;
-    const max = parseFloat(await db.getSetting('max_handicap') || '50');
+    const nextRace = races.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
+    const lastRace = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => b.round - a.round)[0] || null;
+    const maxRound = nextRace?.round || (lastRace?.round ? lastRace.round + 1 : 1);
+    const max = maxRound * 10;
 
     const d1 = picks.driver1_id ? await db.findOne('drivers', d => d.id === picks.driver1_id) : null;
     const d2 = picks.driver2_id ? await db.findOne('drivers', d => d.id === picks.driver2_id) : null;

@@ -31,7 +31,7 @@ async function computeRaceScores(raceId) {
   }
 
   const leaderPts = Math.max(...Object.values(prevCumPts), 0);
-  const maxHandicap = parseFloat(await db.getSetting('max_handicap') || '50');
+  const maxHandicap = race.round * 10;
 
   function getHandicap(driverId) {
     if (leaderPts <= 0) return 1.0; // R1: no prior races, everyone gets ×1
