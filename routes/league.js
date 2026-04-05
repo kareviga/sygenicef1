@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
+const { getRaceDeadline, isAutoLocked } = require('../utils/deadline');
 
 // GET /api/league/standings
 router.get('/standings', requireAuth, async (req, res) => {
@@ -73,7 +74,9 @@ router.get('/settings', requireAuth, async (req, res) => {
     const sorted = races.filter(r => !r.cancelled).sort((a, b) => a.round - b.round);
     const nextRace = sorted.find(r => !r.is_completed) || null;
     const completedCount = sorted.filter(r => r.is_completed).length;
-    res.json({ picks_locked: picksLocked === '1', next_race: nextRace, completed_races: completedCount });
+    const deadline = getRaceDeadline(nextRace);
+    const locked = picksLocked === '1' || isAutoLocked(nextRace);
+    res.json({ picks_locked: locked, picks_locked_manual: picksLocked === '1', next_race: nextRace, completed_races: completedCount, deadline });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

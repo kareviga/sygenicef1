@@ -9,6 +9,7 @@ let adminRaces = [];
 let teamRacesData = [];
 let expandedRaceIds = new Set();
 let raceDetailSort = { col: 'race_pts', dir: 'desc' };
+let countdownInterval = null;
 
 // ── API helper ───────────────────────────────────────────────────────────
 async function api(path, options = {}) {
@@ -95,7 +96,12 @@ async function initApp() {
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────
+function clearCountdown() {
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+}
+
 async function showScreen(name) {
+  if (name !== 'team') clearCountdown();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('s-' + name).classList.add('active');
@@ -107,6 +113,25 @@ async function showScreen(name) {
   if (name === 'admin')   await loadAdmin();
   if (name === 'cal')     await loadCalendar();
   // 'points' screen is static HTML, no load needed
+}
+
+function startCountdown(deadlineDate) {
+  clearCountdown();
+  function tick() {
+    const el = document.getElementById('picks-countdown');
+    if (!el) { clearCountdown(); return; }
+    const deadline = new Date(deadlineDate + 'T23:59:59');
+    const diff = deadline - new Date();
+    if (diff <= 0) { el.textContent = 'fristen er passert'; clearCountdown(); return; }
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    if (d > 0)      el.textContent = `⏱ ${d}d ${h}t igjen`;
+    else if (h > 0) el.textContent = `⏱ ${h}t ${m}m igjen`;
+    else            el.textContent = `⏱ ${m}m igjen`;
+  }
+  tick();
+  countdownInterval = setInterval(tick, 60000);
 }
 
 // ── Mitt lag ──────────────────────────────────────────────────────────────
@@ -145,15 +170,20 @@ async function loadTeam() {
       const pill = picksLocked
         ? '<div class="locked-pill">🔒 LÅST</div>'
         : '<div class="open-pill">✓ ÅPENT</div>';
+      const deadlineLine = settings.deadline && !picksLocked
+        ? `<div style="font-size:0.76rem;color:var(--muted);margin-top:4px">Frist: ${formatDate(settings.deadline)} · <span id="picks-countdown" style="color:var(--cyan)"></span></div>`
+        : '';
       nextEl.innerHTML = `
         <div class="next-race">
           <div>
             <div class="next-round">Runde ${nr.round}</div>
             <div class="next-name">${nr.name}</div>
             <div class="next-detail">${nr.circuit} · ${formatDate(nr.date)}</div>
+            ${deadlineLine}
           </div>
           ${pill}
         </div>`;
+      if (settings.deadline && !picksLocked) startCountdown(settings.deadline);
     } else {
       nextEl.innerHTML = '<div class="empty">Sesongen er over</div>';
     }

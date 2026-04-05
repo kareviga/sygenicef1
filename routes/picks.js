@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
+const { isAutoLocked } = require('../utils/deadline');
 
 function calcHandicap(driverPts, leaderPts, maxHandicap) {
   if (leaderPts <= 0) return 1.0;
@@ -50,7 +51,12 @@ router.get('/my', requireAuth, async (req, res) => {
 // PUT /api/picks
 router.put('/', requireAuth, async (req, res) => {
   try {
-    if (await db.getSetting('picks_locked') === '1') {
+    const [picksLocked, races] = await Promise.all([
+      db.getSetting('picks_locked'),
+      db.all('races'),
+    ]);
+    const nextRace = races.filter(r => !r.cancelled).sort((a, b) => a.round - b.round).find(r => !r.is_completed) || null;
+    if (picksLocked === '1' || isAutoLocked(nextRace)) {
       return res.status(403).json({ error: 'Picks are locked — race weekend in progress' });
     }
 
