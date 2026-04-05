@@ -201,7 +201,7 @@ function driverCardHTML(d) {
       <div class="driver-name">${d.name}</div>
       <div class="driver-team" style="color:${d.team_color}">${d.team}</div>
       <div class="driver-hf">
-        <span>${d.championship_pts} pts</span>
+        <span>${d.championship_pts} WDC pts</span>
         <span class="hf">×${d.handicap}</span>
       </div>
     </div>`;
@@ -349,7 +349,7 @@ function renderPicksGrid() {
         <div class="driver-name">${d.short_name}</div>
         <div class="driver-team" style="color:${d.team_color}">${d.team}</div>
         <div class="pick-hf">
-          <span>${d.championship_pts} pts</span>
+          <span>${d.championship_pts} WDC pts</span>
           <span class="mult">×${d.handicap}</span>
         </div>
       </div>`;
