@@ -15,7 +15,7 @@ router.get('/standings', requireAuth, async (req, res) => {
 
     const sortedDrivers = drivers.sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = sortedDrivers[0]?.championship_pts || 0;
-    const max = parseFloat(await db.getSetting('max_handicap') || '30');
+    const max = parseFloat(await db.getSetting('max_handicap') || '50');
 
     function handicap(d) {
       if (leaderPts <= 0) return 1.0;
@@ -95,7 +95,7 @@ router.get('/races/:raceId/detail', requireAuth, async (req, res) => {
     ]);
     if (!race) return res.status(404).json({ error: 'Race not found' });
 
-    const maxHandicap = parseFloat(maxSetting || '30');
+    const maxHandicap = parseFloat(maxSetting || '50');
 
     // Points scored in this race
     const racePointsMap = {};

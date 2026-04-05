@@ -18,7 +18,7 @@ router.get('/drivers', requireAuth, async (req, res) => {
   try {
     const drivers = (await db.all('drivers')).sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = drivers[0]?.championship_pts || 0;
-    const max = parseFloat(await db.getSetting('max_handicap') || '30');
+    const max = parseFloat(await db.getSetting('max_handicap') || '50');
     res.json(drivers.map(d => enrichDriver(d, leaderPts, max)));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -33,7 +33,7 @@ router.get('/my', requireAuth, async (req, res) => {
 
     const drivers = (await db.all('drivers')).sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = drivers[0]?.championship_pts || 0;
-    const max = parseFloat(await db.getSetting('max_handicap') || '30');
+    const max = parseFloat(await db.getSetting('max_handicap') || '50');
 
     const d1 = picks.driver1_id ? await db.findOne('drivers', d => d.id === picks.driver1_id) : null;
     const d2 = picks.driver2_id ? await db.findOne('drivers', d => d.id === picks.driver2_id) : null;

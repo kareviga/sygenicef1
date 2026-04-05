@@ -11,3 +11,7 @@ ALTER TABLE user_race_scores ADD COLUMN IF NOT EXISTS driver1_race_pts float DEF
 ALTER TABLE user_race_scores ADD COLUMN IF NOT EXISTS driver1_hc float DEFAULT 1;
 ALTER TABLE user_race_scores ADD COLUMN IF NOT EXISTS driver2_race_pts float DEFAULT 0;
 ALTER TABLE user_race_scores ADD COLUMN IF NOT EXISTS driver2_hc float DEFAULT 1;
+
+-- 4. Set max HC multiplier to 50
+INSERT INTO settings (key, value) VALUES ('max_handicap', '50')
+ON CONFLICT (key) DO UPDATE SET value = '50';
