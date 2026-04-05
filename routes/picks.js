@@ -72,8 +72,8 @@ router.put('/', requireAuth, async (req, res) => {
 
     const existing = await db.findOne('user_picks', r => r.user_id === req.user.id);
 
-    if (existing?.driver1_id && (existing.swaps_used || 0) >= 4) {
-      return res.status(400).json({ error: 'Du har brukt alle 4 byttene dine for sesongen' });
+    if (existing?.driver1_id && (existing.swaps_used || 0) >= 10) {
+      return res.status(400).json({ error: 'Du har brukt alle 10 byttene dine for sesongen' });
     }
 
     const swapsUsed = existing?.driver1_id ? (existing.swaps_used + 1) : (existing?.swaps_used || 0);

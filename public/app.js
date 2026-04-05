@@ -153,7 +153,7 @@ async function loadTeam() {
     const rank = standings.findIndex(s => s.is_me) + 1;
     document.getElementById('team-pts').textContent = myStanding?.score ?? '0';
     document.getElementById('team-rank').textContent = rank > 0 ? `#${rank}` : '—';
-    document.getElementById('team-swaps').textContent = `${picks.swaps_used ?? 0}/4`;
+    document.getElementById('team-swaps').textContent = `${picks.swaps_used ?? 0}/10`;
 
     const noPicks = !picks.driver1 && !picks.driver2;
     document.getElementById('no-picks-msg').style.display = noPicks ? 'block' : 'none';
@@ -477,7 +477,7 @@ async function loadAdmin() {
             ${u.username === currentUser.username ? '<span style="color:var(--muted);font-size:0.72rem">(deg)</span>' : ''}
           </div>
           <div style="font-size:0.78rem;color:var(--muted);margin-top:2px">
-            ${u.driver1 && u.driver2 ? `${u.driver1} · ${u.driver2}` : 'Ingen valg ennå'} · ${u.swaps_used || 0}/4 bytter
+            ${u.driver1 && u.driver2 ? `${u.driver1} · ${u.driver2}` : 'Ingen valg ennå'} · ${u.swaps_used || 0}/10 bytter
           </div>
         </div>
         ${u.username !== currentUser.username ? `
