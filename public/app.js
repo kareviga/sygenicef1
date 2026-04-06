@@ -113,6 +113,7 @@ async function showScreen(name) {
   if (name === 'lb')      await loadStandings();
   if (name === 'admin')   await loadAdmin();
   if (name === 'cal')     await loadCalendar();
+  if (name === 'bets')    await loadBets();
   // 'points' screen is static HTML, no load needed
 }
 
@@ -758,6 +759,160 @@ function dateRange(dateStr, hasSprint) {
     return `${startDay.getDate()}–${raceDay.getDate()} ${mon}`;
   }
   return `${formatDate(startDay.toISOString().split('T')[0])} – ${formatDate(dateStr)}`;
+}
+
+// ── Bets ──────────────────────────────────────────────────────────────────
+let betsData = null;
+
+async function loadBets() {
+  try {
+    betsData = await api('/api/bets');
+    const { balance, next_race, pool, my_bets, drivers } = betsData;
+
+    // Balance bar
+    const netColor = balance.net_bet >= 0 ? 'var(--green)' : 'var(--pink)';
+    const netSign  = balance.net_bet >= 0 ? '+' : '';
+    document.getElementById('bets-balance').innerHTML = `
+      <div style="flex:1;min-width:90px;text-align:center;padding:4px 0">
+        <div style="font-size:0.72rem;color:var(--muted);letter-spacing:0.05em">HC-POENG</div>
+        <div style="font-family:'VT323',monospace;font-size:1.5rem;color:var(--cyan);text-shadow:0 0 8px var(--cyan)">${balance.total_hc}</div>
+      </div>
+      <div style="width:1px;background:var(--border);margin:4px 0"></div>
+      <div style="flex:1;min-width:90px;text-align:center;padding:4px 0">
+        <div style="font-size:0.72rem;color:var(--muted);letter-spacing:0.05em">BET-BALANSE</div>
+        <div style="font-family:'VT323',monospace;font-size:1.5rem;color:${netColor};text-shadow:0 0 8px ${netColor}">${netSign}${balance.net_bet}</div>
+      </div>
+      <div style="width:1px;background:var(--border);margin:4px 0"></div>
+      <div style="flex:1;min-width:90px;text-align:center;padding:4px 0">
+        <div style="font-size:0.72rem;color:var(--muted);letter-spacing:0.05em">TILGJENGELIG</div>
+        <div style="font-family:'VT323',monospace;font-size:1.5rem;color:var(--yellow);text-shadow:0 0 8px var(--yellow)">${balance.available}</div>
+      </div>`;
+
+    // Populate driver dropdowns
+    const opts = drivers.map(d => `<option value="${d.id}">${d.short_name}</option>`).join('');
+    document.getElementById('bet-driver-above').innerHTML = '<option value="">Sjåfør A</option>' + opts;
+    document.getElementById('bet-driver-below').innerHTML = '<option value="">Sjåfør B</option>' + opts;
+
+    // Pool
+    if (!next_race) {
+      document.getElementById('bets-pool').innerHTML = '<div class="empty">Ingen kommende race</div>';
+    } else if (pool.length === 0) {
+      document.getElementById('bets-pool').innerHTML = `<div class="empty">Ingen åpne bets for R${next_race.round}</div>`;
+    } else {
+      document.getElementById('bets-pool').innerHTML = pool.map(b => betRowHTML(b, 'pool')).join('');
+    }
+
+    // Mine
+    document.getElementById('bets-mine').innerHTML = my_bets.length
+      ? my_bets.map(b => betRowHTML(b, 'mine')).join('')
+      : '<div class="empty">Ingen bets ennå</div>';
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function betRowHTML(b, mode) {
+  const aboveColor = b.driver_above?.team_color || 'var(--text)';
+  const belowColor = b.driver_below?.team_color || 'var(--text)';
+
+  let statusBadge = '';
+  if (b.status === 'open')      statusBadge = `<span style="color:var(--cyan);font-family:'VT323',monospace;font-size:0.95rem">ÅPEN</span>`;
+  else if (b.status === 'accepted')  statusBadge = `<span style="color:var(--yellow);font-family:'VT323',monospace;font-size:0.95rem">AKSEPTERT</span>`;
+  else if (b.status === 'void')      statusBadge = `<span style="color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">VOID</span>`;
+  else if (b.status === 'cancelled') statusBadge = `<span style="color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">AVBRUTT</span>`;
+  else if (b.status === 'settled') {
+    const iWon = b.winner_id && ((b.is_mine && b.winner_id === b.creator_id) || (b.i_accepted && b.winner_id === b.acceptor_id));
+    statusBadge = `<span style="color:${iWon ? 'var(--green)' : 'var(--pink)'};font-family:'VT323',monospace;font-size:0.95rem">${iWon ? '✓ VUNNET' : '✗ TAPT'}</span>`;
+  }
+
+  const roundLabel = b.race_round ? `<span style="color:var(--pink);font-family:'VT323',monospace;font-size:0.9rem">R${b.race_round}</span> · ` : '';
+  const challenger = mode === 'pool' ? `<span style="color:var(--muted);font-size:0.78rem">${b.creator_name} utfordrer</span>` : '';
+
+  let actionBtn = '';
+  if (mode === 'pool') {
+    actionBtn = `<button onclick="acceptBet(${b.id})" style="
+      border:1px solid var(--cyan);background:rgba(0,255,255,0.08);color:var(--cyan);
+      padding:5px 12px;border-radius:3px;font-family:'VT323',monospace;font-size:0.95rem;
+      cursor:pointer;white-space:nowrap;letter-spacing:0.06em;flex-shrink:0;
+    ">AKSEPTER</button>`;
+  } else if (mode === 'mine' && b.status === 'open' && b.is_mine) {
+    actionBtn = `<button onclick="cancelBet(${b.id})" style="
+      border:1px solid var(--border);background:transparent;color:var(--muted);
+      padding:5px 10px;border-radius:3px;font-family:'VT323',monospace;font-size:0.9rem;
+      cursor:pointer;white-space:nowrap;
+    ">AVBRYT</button>`;
+  }
+
+  const wonLost = (b.status === 'settled' && b.winner_id !== null)
+    ? (b.is_mine ? (b.winner_id === b.creator_id) : (b.winner_id === b.acceptor_id))
+      ? `<span style="color:var(--green);font-family:'VT323',monospace;font-size:1rem">+${b.points}</span>`
+      : `<span style="color:var(--pink);font-family:'VT323',monospace;font-size:1rem">-${b.points}</span>`
+    : `<span style="font-family:'VT323',monospace;font-size:1rem;color:var(--yellow)">${b.points} pts</span>`;
+
+  return `
+    <div class="race-row" style="align-items:flex-start;gap:10px">
+      <div style="flex:1;min-width:0">
+        ${challenger ? `<div style="margin-bottom:3px">${challenger}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          ${roundLabel}
+          <span style="color:${aboveColor};font-weight:700">${b.driver_above?.short_name || '?'}</span>
+          <span style="color:var(--muted);font-size:0.82rem">slår</span>
+          <span style="color:${belowColor};font-weight:700">${b.driver_below?.short_name || '?'}</span>
+        </div>
+        <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${wonLost}
+          ${statusBadge}
+          ${b.acceptor_name && b.status !== 'open' ? `<span style="color:var(--muted);font-size:0.78rem">vs ${b.acceptor_name}</span>` : ''}
+        </div>
+      </div>
+      ${actionBtn}
+    </div>`;
+}
+
+async function submitBet() {
+  const driver_above_id = parseInt(document.getElementById('bet-driver-above').value);
+  const driver_below_id = parseInt(document.getElementById('bet-driver-below').value);
+  const points = parseFloat(document.getElementById('bet-points').value);
+
+  if (!driver_above_id || !driver_below_id) { showToast('Velg to sjåfører', 'error'); return; }
+  if (driver_above_id === driver_below_id)   { showToast('Velg to forskjellige sjåfører', 'error'); return; }
+  if (!points || points <= 0)                { showToast('Skriv inn poeng å satse', 'error'); return; }
+  if (!betsData?.next_race)                  { showToast('Ingen kommende race å bette på', 'error'); return; }
+
+  try {
+    await api('/api/bets', {
+      method: 'POST',
+      body: JSON.stringify({ race_id: betsData.next_race.id, driver_above_id, driver_below_id, points }),
+    });
+    document.getElementById('bet-points').value = '';
+    document.getElementById('bet-driver-above').value = '';
+    document.getElementById('bet-driver-below').value = '';
+    showToast('Bet lagt! Venter på utfordrer…', 'success');
+    await loadBets();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function acceptBet(betId) {
+  try {
+    await api(`/api/bets/${betId}/accept`, { method: 'PUT' });
+    showToast('Bet akseptert! Måtte det beste laget vinne 🏎', 'success');
+    await loadBets();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function cancelBet(betId) {
+  try {
+    await api(`/api/bets/${betId}`, { method: 'DELETE' });
+    showToast('Bet avbrutt', 'success');
+    await loadBets();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────

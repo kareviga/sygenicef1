@@ -10,6 +10,7 @@ app.use('/api/auth',   require('./routes/auth'));
 app.use('/api/picks',  require('./routes/picks'));
 app.use('/api/league', require('./routes/league'));
 app.use('/api/admin',  require('./routes/admin'));
+app.use('/api/bets',   require('./routes/bets'));
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));

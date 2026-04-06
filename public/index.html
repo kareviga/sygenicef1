@@ -658,6 +658,57 @@
     </div>
   </div>
 
+  <!-- ── BETS ── -->
+  <div class="screen" id="s-bets">
+    <div style="margin-bottom:4px">
+      <div class="page-title">BETS</div>
+      <div class="page-sub">Emils bettinghule · for den som trenger litt ekstra spenning</div>
+    </div>
+
+    <!-- Balance bar -->
+    <div id="bets-balance" style="
+      background:var(--card);border:1px solid var(--border);border-radius:6px;
+      padding:12px 14px;margin:12px 0;display:flex;gap:0;flex-wrap:wrap;
+    "></div>
+
+    <!-- Create bet -->
+    <div class="section-label">Lag bet</div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px;margin-bottom:12px">
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:10px">Velg to sjåfører og sett hvor mange poeng du satser. Den andre brukeren satser mot.</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <select id="bet-driver-above" style="
+          flex:1;min-width:110px;background:var(--card2);border:1px solid var(--border);
+          color:var(--text);padding:7px 10px;border-radius:4px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;
+        "><option value="">Sjåfør A</option></select>
+        <span style="color:var(--muted);font-family:'VT323',monospace;font-size:1.1rem;white-space:nowrap">slår</span>
+        <select id="bet-driver-below" style="
+          flex:1;min-width:110px;background:var(--card2);border:1px solid var(--border);
+          color:var(--text);padding:7px 10px;border-radius:4px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;
+        "><option value="">Sjåfør B</option></select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="bet-points" type="number" min="1" placeholder="Poeng" style="
+          flex:1;background:var(--card2);border:1px solid var(--border);
+          color:var(--text);padding:7px 10px;border-radius:4px;
+          font-family:'Rajdhani',sans-serif;font-size:0.9rem;
+        ">
+        <button onclick="submitBet()" style="
+          border:1px solid var(--pink);background:rgba(255,0,170,0.12);color:var(--pink);
+          padding:7px 18px;border-radius:4px;font-family:'VT323',monospace;font-size:1rem;
+          cursor:pointer;letter-spacing:0.08em;white-space:nowrap;
+        ">LAG BET</button>
+      </div>
+    </div>
+
+    <!-- Open pool -->
+    <div class="section-label">Åpne bets</div>
+    <div id="bets-pool" style="margin-bottom:12px"></div>
+
+    <!-- My bets -->
+    <div class="section-label">Mine bets</div>
+    <div id="bets-mine"></div>
+  </div>
+
   <!-- ── KALENDER ── -->
   <div class="screen" id="s-cal">
     <div style="margin-bottom:4px">
@@ -719,6 +770,10 @@
     <button class="nav-item" id="nav-cal" onclick="showScreen('cal')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Kalender
+    </button>
+    <button class="nav-item" id="nav-bets" onclick="showScreen('bets')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+      Bets
     </button>
     <button class="nav-item" id="nav-admin" onclick="showScreen('admin')" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>

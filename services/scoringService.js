@@ -80,6 +80,24 @@ async function computeRaceScores(raceId) {
   }
 
   await db.update('races', r => r.id === raceId, { is_completed: true });
+  await settleBets(raceId, racePoints);
+}
+
+async function settleBets(raceId, racePoints) {
+  const accepted = await db.find('bets', b => b.race_id === raceId && b.status === 'accepted');
+  for (const bet of accepted) {
+    const above_pts = racePoints[bet.driver_above_id] || 0;
+    const below_pts = racePoints[bet.driver_below_id] || 0;
+    let status, winner_id;
+    if (above_pts > below_pts) {
+      status = 'settled'; winner_id = bet.creator_id;   // creator's pick was right
+    } else if (below_pts > above_pts) {
+      status = 'settled'; winner_id = bet.acceptor_id;  // acceptor's pick was right
+    } else {
+      status = 'void'; winner_id = null;                // tie / both 0 pts → refund
+    }
+    await db.update('bets', b => b.id === bet.id, { status, winner_id, settled_at: new Date().toISOString() });
+  }
 }
 
 async function clearRaceScores(raceId) {
