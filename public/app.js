@@ -480,16 +480,24 @@ async function loadAdmin() {
             ${u.driver1 && u.driver2 ? `${u.driver1} · ${u.driver2}` : 'Ingen valg ennå'} · ${u.swaps_used || 0}/10 bytter
           </div>
         </div>
-        ${u.username !== currentUser.username ? `
-          <button onclick="toggleUserAdmin(${u.id}, ${!u.is_admin})" style="
-            border:1px solid ${u.is_admin ? 'var(--pink)' : 'var(--border)'};
-            background:${u.is_admin ? 'rgba(255,0,170,0.08)' : 'transparent'};
-            color:${u.is_admin ? 'var(--pink)' : 'var(--muted)'};
-            padding:5px 12px;border-radius:3px;
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button onclick="resetUserPassword(${u.id}, '${u.username}')" style="
+            border:1px solid var(--border);background:transparent;
+            color:var(--muted);padding:5px 10px;border-radius:3px;
             font-family:'VT323',monospace;font-size:0.95rem;
             cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
-          ">${u.is_admin ? 'Fjern admin' : 'Gjør til admin'}</button>
-        ` : ''}
+          ">Nytt passord</button>
+          ${u.username !== currentUser.username ? `
+            <button onclick="toggleUserAdmin(${u.id}, ${!u.is_admin})" style="
+              border:1px solid ${u.is_admin ? 'var(--pink)' : 'var(--border)'};
+              background:${u.is_admin ? 'rgba(255,0,170,0.08)' : 'transparent'};
+              color:${u.is_admin ? 'var(--pink)' : 'var(--muted)'};
+              padding:5px 12px;border-radius:3px;
+              font-family:'VT323',monospace;font-size:0.95rem;
+              cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
+            ">${u.is_admin ? 'Fjern admin' : 'Gjør til admin'}</button>
+          ` : ''}
+        </div>
       </div>`).join('') || '<div class="empty">Ingen brukere ennå</div>';
 
   } catch (err) {
@@ -649,6 +657,21 @@ async function saveDriverPts() {
       });
     }
     showToast('VM-poeng oppdatert', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function resetUserPassword(userId, username) {
+  const password = prompt(`Nytt passord for ${username}:`);
+  if (!password) return;
+  if (password.length < 4) { showToast('Passord må være minst 4 tegn', 'error'); return; }
+  try {
+    await api(`/api/admin/users/${userId}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ password }),
+    });
+    showToast(`Passord for ${username} oppdatert ✓`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }

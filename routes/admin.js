@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const bcrypt = require('bcryptjs');
 const db = require('../db/database');
 const { requireAdmin } = require('../middleware/auth');
 const { computeRaceScores, clearRaceScores } = require('../services/scoringService');
@@ -117,6 +118,20 @@ router.get('/users', requireAdmin, async (req, res) => {
       return { ...safe, driver1: d1, driver2: d2, swaps_used: picks?.swaps_used || 0 };
     });
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/users/:id/password
+router.put('/users/:id/password', requireAdmin, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id);
+    const { password } = req.body;
+    if (!password || password.length < 4) return res.status(400).json({ error: 'Passord må være minst 4 tegn' });
+    const hash = bcrypt.hashSync(password, 10);
+    await db.update('users', u => u.id === targetId, { password_hash: hash });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
