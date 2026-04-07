@@ -66,9 +66,9 @@ router.get('/', requireAuth, async (req, res) => {
           .map(b => enrichBet(b, driverMap, userMap, userId, races))
       : [];
 
-    // My bets (creator or acceptor), newest first
+    // My bets (creator or acceptor), newest first — hide cancelled
     const my_bets = allBets
-      .filter(b => b.creator_id === userId || b.acceptor_id === userId)
+      .filter(b => (b.creator_id === userId || b.acceptor_id === userId) && b.status !== 'cancelled')
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .map(b => enrichBet(b, driverMap, userMap, userId, races));
 
@@ -163,16 +163,31 @@ router.put('/:id/accept', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/bets/:id — cancel own open bet
+// DELETE /api/bets/:id — cancel a bet (either party, before race locks)
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const betId = parseInt(req.params.id);
-    const bet = await db.findOne('bets', b => b.id === betId);
-    if (!bet)                           return res.status(404).json({ error: 'Bet ikke funnet' });
-    if (bet.creator_id !== req.user.id) return res.status(403).json({ error: 'Ikke ditt bet' });
-    if (bet.status !== 'open')          return res.status(400).json({ error: 'Kan bare avbryte åpne bets' });
+    const [bet, picksLocked, allRaces] = await Promise.all([
+      db.findOne('bets', b => b.id === betId),
+      db.getSetting('picks_locked'),
+      db.all('races'),
+    ]);
+    if (!bet) return res.status(404).json({ error: 'Bet ikke funnet' });
 
-    await db.update('bets', b => b.id === betId, { status: 'cancelled' });
+    const isParticipant = bet.creator_id === req.user.id || bet.acceptor_id === req.user.id;
+    if (!isParticipant) return res.status(403).json({ error: 'Ikke ditt bet' });
+
+    if (!['open', 'accepted'].includes(bet.status)) {
+      return res.status(400).json({ error: 'Kan bare avbryte åpne eller aksepterte bets' });
+    }
+
+    // Once race weekend starts, bets are locked in
+    const nextRace = allRaces.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
+    if (picksLocked === '1' || isAutoLocked(nextRace)) {
+      return res.status(403).json({ error: 'Race-helgen har startet — bets kan ikke avbrytes' });
+    }
+
+    await db.update('bets', b => b.id === betId, { status: 'cancelled', acceptor_id: null });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

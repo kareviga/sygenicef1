@@ -873,7 +873,7 @@ function betRowHTML(b, mode) {
       padding:5px 12px;border-radius:3px;font-family:'VT323',monospace;font-size:0.95rem;
       cursor:pointer;white-space:nowrap;letter-spacing:0.06em;flex-shrink:0;
     ">AKSEPTER</button>`;
-  } else if (mode === 'mine' && b.status === 'open' && b.is_mine) {
+  } else if (mode === 'mine' && ['open', 'accepted'].includes(b.status) && (b.is_mine || b.i_accepted)) {
     actionBtn = `<button onclick="cancelBet(${b.id})" style="
       border:1px solid var(--border);background:transparent;color:var(--muted);
       padding:5px 10px;border-radius:3px;font-family:'VT323',monospace;font-size:0.9rem;
