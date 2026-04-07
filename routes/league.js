@@ -11,8 +11,8 @@ router.get('/standings', requireAuth, async (req, res) => {
       db.all('drivers'),
       db.all('user_race_scores'),
       db.all('races'),
-      db.all('bets'),
-      db.all('user_race_picks'),
+      db.all('bets').catch(() => []),
+      db.all('user_race_picks').catch(() => []),
     ]);
 
     const sortedDrivers = drivers.sort((a, b) => b.championship_pts - a.championship_pts);
