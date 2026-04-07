@@ -45,12 +45,14 @@ async function computeRaceScores(raceId) {
     await db.update('drivers', d => d.id === parseInt(driverId), { championship_pts: pts });
   }
 
-  // Fetch all users and picks in one batch
-  const [users, allPicks, allDrivers] = await Promise.all([
+  // Use snapshot picks (frozen at lock time); fall back to user_picks for pre-snapshot races
+  const [users, allDrivers, snapshotPicks, currentPicks] = await Promise.all([
     db.all('users'),
-    db.all('user_picks'),
     db.all('drivers'),
+    db.find('user_race_picks', r => r.race_id === raceId),
+    db.all('user_picks'),
   ]);
+  const allPicks = snapshotPicks.length > 0 ? snapshotPicks : currentPicks;
 
   for (const user of users) {
     const picks = allPicks.find(r => r.user_id === user.id);
@@ -80,22 +82,51 @@ async function computeRaceScores(raceId) {
   }
 
   await db.update('races', r => r.id === raceId, { is_completed: true });
-  await settleBets(raceId, racePoints);
+  await settleBets(raceId);
 }
 
-async function settleBets(raceId, racePoints) {
+async function settleBets(raceId) {
   const accepted = await db.find('bets', b => b.race_id === raceId && b.status === 'accepted');
+  if (accepted.length === 0) return;
+
+  const raceResults = await db.find('race_results', r => r.race_id === raceId);
+
   for (const bet of accepted) {
-    const above_pts = racePoints[bet.driver_above_id] || 0;
-    const below_pts = racePoints[bet.driver_below_id] || 0;
+    const aboveRes = raceResults.find(r => r.driver_id === bet.driver_above_id);
+    const belowRes = raceResults.find(r => r.driver_id === bet.driver_below_id);
+
+    const aboveDNF = !aboveRes || aboveRes.dnf;
+    const belowDNF = !belowRes || belowRes.dnf;
+
     let status, winner_id;
-    if (above_pts > below_pts) {
-      status = 'settled'; winner_id = bet.creator_id;   // creator's pick was right
-    } else if (below_pts > above_pts) {
-      status = 'settled'; winner_id = bet.acceptor_id;  // acceptor's pick was right
+
+    if (aboveDNF && belowDNF) {
+      // Both DNF → void/refund
+      status = 'void'; winner_id = null;
+    } else if (aboveDNF) {
+      // above DNF, below finished → acceptor wins
+      status = 'settled'; winner_id = bet.acceptor_id;
+    } else if (belowDNF) {
+      // below DNF, above finished → creator wins
+      status = 'settled'; winner_id = bet.creator_id;
+    } else if (aboveRes.position != null && belowRes.position != null) {
+      // Both have position data — lower position number = better finish
+      if (aboveRes.position < belowRes.position) {
+        status = 'settled'; winner_id = bet.creator_id;
+      } else if (belowRes.position < aboveRes.position) {
+        status = 'settled'; winner_id = bet.acceptor_id;
+      } else {
+        status = 'void'; winner_id = null; // identical position (shouldn't happen)
+      }
     } else {
-      status = 'void'; winner_id = null;                // tie / both 0 pts → refund
+      // No position data — fall back to points comparison
+      const abovePts = aboveRes?.points || 0;
+      const belowPts = belowRes?.points || 0;
+      if (abovePts > belowPts)      { status = 'settled'; winner_id = bet.creator_id; }
+      else if (belowPts > abovePts) { status = 'settled'; winner_id = bet.acceptor_id; }
+      else                          { status = 'void';    winner_id = null; }
     }
+
     await db.update('bets', b => b.id === bet.id, { status, winner_id, settled_at: new Date().toISOString() });
   }
 }

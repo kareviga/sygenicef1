@@ -6,19 +6,22 @@ const { getRaceDeadline, isAutoLocked } = require('../utils/deadline');
 // GET /api/league/standings
 router.get('/standings', requireAuth, async (req, res) => {
   try {
-    const [users, drivers, allScores, races] = await Promise.all([
+    const [users, drivers, allScores, races, allBets, allRacePicks] = await Promise.all([
       db.all('users'),
       db.all('drivers'),
       db.all('user_race_scores'),
       db.all('races'),
+      db.all('bets'),
+      db.all('user_race_picks'),
     ]);
 
     const sortedDrivers = drivers.sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = sortedDrivers[0]?.championship_pts || 0;
     const nextRace = races.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
-    const lastRaceForMax = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => b.round - a.round)[0] || null;
-    const maxRound = nextRace?.round || (lastRaceForMax?.round ? lastRaceForMax.round + 1 : 1);
+    const lastRace = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => b.round - a.round)[0] || null;
+    const maxRound = nextRace?.round || (lastRace?.round ? lastRace.round + 1 : 1);
     const max = maxRound * 10;
+    const isLocked = isAutoLocked(nextRace);
 
     function handicap(d) {
       if (leaderPts <= 0) return 1.0;
@@ -26,19 +29,30 @@ router.get('/standings', requireAuth, async (req, res) => {
       return +Math.min(leaderPts / d.championship_pts, max).toFixed(2);
     }
 
-    // Last completed non-cancelled race — used to show which drivers each user had
-    const lastRace = races
-      .filter(r => r.is_completed && !r.cancelled)
-      .sort((a, b) => b.round - a.round)[0] || null;
+    // Determine which round/race to show picks for
+    const displayRace = isLocked && nextRace ? nextRace : lastRace;
 
     const standings = users.map(user => {
       const scores = allScores.filter(r => r.user_id === user.id);
-      const total = +scores.reduce((s, r) => s + r.score, 0).toFixed(1);
+      const total_hc = scores.reduce((s, r) => s + r.score, 0);
 
-      // Drivers from the last completed race (what they actually raced with)
-      const lastScore = lastRace ? scores.find(s => s.race_id === lastRace.id) : null;
-      const d1 = lastScore?.driver1_id ? drivers.find(d => d.id === lastScore.driver1_id) : null;
-      const d2 = lastScore?.driver2_id ? drivers.find(d => d.id === lastScore.driver2_id) : null;
+      // Net bet balance from settled bets
+      const net_bet = allBets
+        .filter(b => b.status === 'settled' && (b.creator_id === user.id || b.acceptor_id === user.id))
+        .reduce((s, b) => b.winner_id === user.id ? s + b.points : s - b.points, 0);
+      const total = +(total_hc + net_bet).toFixed(1);
+
+      // Pick display: snapshot when locked (current race), else last completed race
+      let d1 = null, d2 = null;
+      if (isLocked && nextRace) {
+        const snap = allRacePicks.find(p => p.race_id === nextRace.id && p.user_id === user.id);
+        d1 = snap?.driver1_id ? drivers.find(d => d.id === snap.driver1_id) : null;
+        d2 = snap?.driver2_id ? drivers.find(d => d.id === snap.driver2_id) : null;
+      } else if (lastRace) {
+        const lastScore = scores.find(s => s.race_id === lastRace.id);
+        d1 = lastScore?.driver1_id ? drivers.find(d => d.id === lastScore.driver1_id) : null;
+        d2 = lastScore?.driver2_id ? drivers.find(d => d.id === lastScore.driver2_id) : null;
+      }
 
       return {
         user_id: user.id,
@@ -51,7 +65,11 @@ router.get('/standings', requireAuth, async (req, res) => {
     });
 
     standings.sort((a, b) => b.score - a.score);
-    res.json({ standings, last_round: lastRace?.round || null });
+    res.json({
+      standings,
+      last_round: displayRace?.round || null,
+      is_live: isLocked && !!nextRace,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -154,11 +172,32 @@ router.get('/settings', requireAuth, async (req, res) => {
     const completedCount = sorted.filter(r => r.is_completed).length;
     const deadline = getRaceDeadline(nextRace);
     const locked = picksLocked === '1' || isAutoLocked(nextRace);
+
+    // Snapshot picks at the moment the race weekend locks (fire-and-forget)
+    if (locked && nextRace) {
+      takePicksSnapshot(nextRace.id).catch(() => {});
+    }
+
     res.json({ picks_locked: locked, picks_locked_manual: picksLocked === '1', next_race: nextRace, completed_races: completedCount, deadline });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+async function takePicksSnapshot(raceId) {
+  const existing = await db.findOne('user_race_picks', r => r.race_id === raceId);
+  if (existing) return; // already snapshotted
+  const [users, allPicks] = await Promise.all([db.all('users'), db.all('user_picks')]);
+  for (const user of users) {
+    const picks = allPicks.find(p => p.user_id === user.id);
+    await db.upsertBy('user_race_picks', null, {
+      race_id: raceId,
+      user_id: user.id,
+      driver1_id: picks?.driver1_id ?? null,
+      driver2_id: picks?.driver2_id ?? null,
+    });
+  }
+}
 
 // GET /api/league/calendar
 router.get('/calendar', requireAuth, async (req, res) => {

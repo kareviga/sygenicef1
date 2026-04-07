@@ -62,8 +62,9 @@ const db = {
   // Upsert by composite unique constraint — table name determines conflict columns
   async upsertBy(table, _pred, data) {
     const conflictMap = {
-      race_results: 'race_id,driver_id',
+      race_results:     'race_id,driver_id',
       user_race_scores: 'user_id,race_id',
+      user_race_picks:  'race_id,user_id',
     };
     const onConflict = conflictMap[table];
     if (onConflict) {

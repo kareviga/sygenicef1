@@ -50,11 +50,17 @@ router.post('/races/:id/results', requireAdmin, async (req, res) => {
     await clearRaceScores(raceId);
 
     for (const r of results) {
-      if (r.points > 0) {
+      if (r.points > 0 || r.position != null) {
         await db.upsertBy(
           'race_results',
           x => x.race_id === raceId && x.driver_id === r.driver_id,
-          { race_id: raceId, driver_id: r.driver_id, points: r.points }
+          {
+            race_id: raceId,
+            driver_id: r.driver_id,
+            points: r.points || 0,
+            position: r.position != null ? parseInt(r.position) : null,
+            dnf: r.dnf || false,
+          }
         );
       }
     }
@@ -179,16 +185,23 @@ router.get('/fetch-results', requireAdmin, async (req, res) => {
     const ptsMap = {};
     for (const r of raceResults) {
       const num = parseInt(r.number);
-      ptsMap[num] = { api_name: `${r.Driver.givenName} ${r.Driver.familyName}`, race_pts: parseFloat(r.points) || 0, sprint_pts: 0 };
+      const isDNF = r.status !== 'Finished' && !r.status.startsWith('+');
+      ptsMap[num] = {
+        api_name: `${r.Driver.givenName} ${r.Driver.familyName}`,
+        race_pts: parseFloat(r.points) || 0,
+        sprint_pts: 0,
+        position: parseInt(r.position) || null,
+        dnf: isDNF,
+      };
     }
     for (const r of sprintResults) {
       const num = parseInt(r.number);
       if (ptsMap[num]) ptsMap[num].sprint_pts = parseFloat(r.points) || 0;
-      else ptsMap[num] = { api_name: `${r.Driver.givenName} ${r.Driver.familyName}`, race_pts: 0, sprint_pts: parseFloat(r.points) || 0 };
+      else ptsMap[num] = { api_name: `${r.Driver.givenName} ${r.Driver.familyName}`, race_pts: 0, sprint_pts: parseFloat(r.points) || 0, position: parseInt(r.position) || null, dnf: false };
     }
 
     const drivers = await db.all('drivers');
-    const matched = [], unmatched = [];
+    const matched = [], unmatched = [], positions = [];
 
     for (const [numStr, data] of Object.entries(ptsMap)) {
       const num = parseInt(numStr);
@@ -196,13 +209,14 @@ router.get('/fetch-results', requireAdmin, async (req, res) => {
       const total = data.race_pts + data.sprint_pts;
       if (driver) {
         matched.push({ driver_id: driver.id, driver_number: driver.number, driver_name: driver.name, race_pts: data.race_pts, sprint_pts: data.sprint_pts, total_pts: total });
+        positions.push({ driver_id: driver.id, position: data.position, dnf: data.dnf });
       } else if (total > 0) {
         unmatched.push({ number: num, api_name: data.api_name, total_pts: total });
       }
     }
 
     matched.sort((a, b) => b.total_pts - a.total_pts);
-    res.json({ matched, unmatched, has_sprint: sprintResults.length > 0, race_name: raceRes.value?.MRData?.RaceTable?.Races?.[0]?.raceName || '' });
+    res.json({ matched, unmatched, positions, has_sprint: sprintResults.length > 0, race_name: raceRes.value?.MRData?.RaceTable?.Races?.[0]?.raceName || '' });
   } catch (err) {
     res.status(500).json({ error: 'Nettverksfeil: ' + err.message });
   }

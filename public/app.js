@@ -400,10 +400,10 @@ async function savePicks() {
 async function loadStandings() {
   try {
     const data = await api('/api/league/standings');
-    const { standings, last_round } = data;
+    const { standings, last_round, is_live } = data;
 
     document.getElementById('lb-sub').textContent = last_round
-      ? `${standings.length} spillere · Førervalg runde ${last_round}`
+      ? `${standings.length} spillere · ${is_live ? `R${last_round} pågår` : `Førervalg runde ${last_round}`}`
       : `${standings.length} spillere`;
 
     const medals = ['🥇', '🥈', '🥉'];
@@ -416,9 +416,10 @@ async function loadStandings() {
 
       const scoreStyle = s.is_me && i >= 3 ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : '';
       const driverNames = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ');
-      const picks = driverNames
-        ? `${driverNames} <span style="color:var(--muted);font-size:0.72rem">(Runde ${last_round})</span>`
-        : 'Ingen valg';
+      const roundLabel = is_live
+        ? `<span style="color:var(--cyan);font-size:0.72rem">(R${last_round} · pågår)</span>`
+        : `<span style="color:var(--muted);font-size:0.72rem">(Runde ${last_round})</span>`;
+      const picks = driverNames ? `${driverNames} ${roundLabel}` : 'Ingen valg';
 
       return `
         <div class="lb-row ${s.is_me ? 'me' : ''}">
@@ -557,7 +558,8 @@ async function loadRaceResultsForm() {
     <table class="admin-table" style="margin-bottom:16px">
       <thead><tr>
         <th>#</th><th>Sjåfør</th>
-        ${isSprint ? '<th style="color:var(--cyan)">Race</th><th style="color:var(--yellow)">Sprint</th>' : '<th>Poeng</th>'}
+        ${isSprint ? '<th style="color:var(--cyan)">Race</th><th style="color:var(--yellow)">Sprint</th>' : '<th>Pts</th>'}
+        <th style="color:var(--muted)">Pos</th><th style="color:var(--muted)">DNF</th>
       </tr></thead>
       <tbody>${drivers.map(d => `
         <tr>
@@ -568,6 +570,8 @@ async function loadRaceResultsForm() {
                <td><input class="pts-input" type="number" min="0" step="0.5" data-sprint-driver="${d.id}" value="0"></td>`
             : `<td><input class="pts-input" type="number" min="0" step="0.5" data-result-driver="${d.id}" value="0"></td>`
           }
+          <td><input type="number" min="1" max="20" placeholder="—" data-pos-driver="${d.id}" style="width:44px;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:3px 5px;border-radius:3px;font-size:0.82rem"></td>
+          <td style="text-align:center"><input type="checkbox" data-dnf-driver="${d.id}"></td>
         </tr>`).join('')}
       </tbody>
     </table>
@@ -583,7 +587,7 @@ async function autoFetchResults(raceId, round, year) {
   try {
     const data = await api(`/api/admin/fetch-results?round=${round}&year=${year}`);
 
-    // Pre-fill input fields for matched drivers
+    // Pre-fill points
     for (const m of data.matched) {
       const raceInput   = document.querySelector(`[data-race-driver="${m.driver_id}"]`);
       const sprintInput = document.querySelector(`[data-sprint-driver="${m.driver_id}"]`);
@@ -591,6 +595,13 @@ async function autoFetchResults(raceId, round, year) {
       if (raceInput)   raceInput.value   = m.race_pts;
       if (sprintInput) sprintInput.value = m.sprint_pts;
       if (singleInput) singleInput.value = m.total_pts;
+    }
+    // Pre-fill position and DNF for all drivers
+    for (const p of (data.positions || [])) {
+      const posInput = document.querySelector(`[data-pos-driver="${p.driver_id}"]`);
+      const dnfInput = document.querySelector(`[data-dnf-driver="${p.driver_id}"]`);
+      if (posInput) posInput.value = p.position ?? '';
+      if (dnfInput) dnfInput.checked = !!p.dnf;
     }
 
     // Build status message
@@ -623,20 +634,30 @@ async function submitRaceResults(raceId) {
 
   let results;
   if (raceInputs.length > 0) {
-    // Sprint weekend — sum race + sprint columns
     results = Array.from(raceInputs).map(input => {
       const driverId    = parseInt(input.dataset.raceDriver);
       const sprintInput = document.querySelector(`[data-sprint-driver="${driverId}"]`);
+      const posInput    = document.querySelector(`[data-pos-driver="${driverId}"]`);
+      const dnfInput    = document.querySelector(`[data-dnf-driver="${driverId}"]`);
       return {
         driver_id: driverId,
-        points: (parseFloat(input.value) || 0) + (parseFloat(sprintInput?.value) || 0),
+        points:   (parseFloat(input.value) || 0) + (parseFloat(sprintInput?.value) || 0),
+        position: posInput?.value ? parseInt(posInput.value) : null,
+        dnf:      dnfInput?.checked || false,
       };
     });
   } else {
-    results = Array.from(singleInputs).map(input => ({
-      driver_id: parseInt(input.dataset.resultDriver),
-      points: parseFloat(input.value) || 0,
-    }));
+    results = Array.from(singleInputs).map(input => {
+      const driverId = parseInt(input.dataset.resultDriver);
+      const posInput = document.querySelector(`[data-pos-driver="${driverId}"]`);
+      const dnfInput = document.querySelector(`[data-dnf-driver="${driverId}"]`);
+      return {
+        driver_id: driverId,
+        points:   parseFloat(input.value) || 0,
+        position: posInput?.value ? parseInt(posInput.value) : null,
+        dnf:      dnfInput?.checked || false,
+      };
+    });
   }
 
   try {
@@ -793,8 +814,24 @@ async function loadBets() {
     document.getElementById('bet-driver-above').innerHTML = '<option value="">Sjåfør A</option>' + opts;
     document.getElementById('bet-driver-below').innerHTML = '<option value="">Sjåfør B</option>' + opts;
 
+    // Lock banner
+    const settingsData = await api('/api/league/settings');
+    const isLocked = settingsData.picks_locked;
+    const lockBanner = isLocked
+      ? `<div style="background:rgba(255,0,170,0.08);border:1px solid var(--pink);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:0.85rem;color:var(--pink);font-family:'VT323',monospace;letter-spacing:0.06em">
+           🔒 BETS LÅST — race-helg pågår. Åpner igjen etter race.
+         </div>`
+      : '';
+    document.getElementById('bets-balance').insertAdjacentHTML('afterend', lockBanner);
+
+    // Hide/show create form
+    document.querySelector('#s-bets .section-label').style.opacity = isLocked ? '0.4' : '1';
+    document.querySelector('#s-bets [onclick="submitBet()"]').disabled = isLocked;
+
     // Pool
-    if (!next_race) {
+    if (isLocked) {
+      document.getElementById('bets-pool').innerHTML = '<div class="empty">Låst under race-helgen</div>';
+    } else if (!next_race) {
       document.getElementById('bets-pool').innerHTML = '<div class="empty">Ingen kommende race</div>';
     } else if (pool.length === 0) {
       document.getElementById('bets-pool').innerHTML = `<div class="empty">Ingen åpne bets for R${next_race.round}</div>`;

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
+const { isAutoLocked } = require('../utils/deadline');
 
 // available = total HC score + net settled winnings − locked in active bets
 function computeBalance(userId, hcScores, allBets) {
@@ -94,11 +95,18 @@ router.post('/', requireAuth, async (req, res) => {
     const pts = parseFloat(points);
     if (!pts || pts <= 0) return res.status(400).json({ error: 'Poeng må være større enn 0' });
 
-    const [race, allBets, hcScores] = await Promise.all([
-      db.findOne('races', r => r.id === parseInt(race_id)),
+    const [picksLocked, allRaces, allBets, hcScores] = await Promise.all([
+      db.getSetting('picks_locked'),
+      db.all('races'),
       db.all('bets'),
       db.all('user_race_scores'),
     ]);
+    const nextRace = allRaces.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
+    if (picksLocked === '1' || isAutoLocked(nextRace)) {
+      return res.status(403).json({ error: 'Bets er låst for denne race-helgen' });
+    }
+
+    const race = allRaces.find(r => r.id === parseInt(race_id));
     if (!race || race.is_completed || race.cancelled) {
       return res.status(400).json({ error: 'Ugyldig race' });
     }
@@ -126,11 +134,17 @@ router.post('/', requireAuth, async (req, res) => {
 router.put('/:id/accept', requireAuth, async (req, res) => {
   try {
     const betId = parseInt(req.params.id);
-    const [bet, allBets, hcScores] = await Promise.all([
+    const [bet, allBets, hcScores, picksLocked, allRaces] = await Promise.all([
       db.findOne('bets', b => b.id === betId),
       db.all('bets'),
       db.all('user_race_scores'),
+      db.getSetting('picks_locked'),
+      db.all('races'),
     ]);
+    const nextRace = allRaces.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
+    if (picksLocked === '1' || isAutoLocked(nextRace)) {
+      return res.status(403).json({ error: 'Bets er låst for denne race-helgen' });
+    }
     if (!bet)                            return res.status(404).json({ error: 'Bet ikke funnet' });
     if (bet.status !== 'open')           return res.status(400).json({ error: 'Bet er ikke lenger åpent' });
     if (bet.creator_id === req.user.id)  return res.status(400).json({ error: 'Du kan ikke akseptere ditt eget bet' });
