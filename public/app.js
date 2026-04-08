@@ -233,7 +233,11 @@ function renderTeamRaces() {
     return `
       <div class="race-row expandable" onclick="toggleRaceDetail(${r.race_id})">
         <div>
-          <div><span class="race-round">R${r.round}</span><span class="race-name">${r.race_name}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="race-round">R${r.round}</span>
+            <span class="race-name">${r.race_name}</span>
+            ${r.has_sprint ? `<span style="background:rgba(255,230,0,0.12);border:1px solid var(--yellow);color:var(--yellow);font-family:'VT323',monospace;font-size:0.82rem;padding:1px 7px;border-radius:3px;text-shadow:0 0 6px var(--yellow);letter-spacing:0.06em">SPRINT</span>` : ''}
+          </div>
           ${driverSub}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">

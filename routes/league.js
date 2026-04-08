@@ -90,6 +90,7 @@ router.get('/my-races', requireAuth, async (req, res) => {
           race_id: race.id,
           round: race.round,
           race_name: race.name,
+          has_sprint: race.has_sprint,
           score: s?.score ?? 0,
           driver1_id: s?.driver1_id ?? null,
           driver2_id: s?.driver2_id ?? null,
