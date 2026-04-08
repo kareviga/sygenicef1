@@ -680,8 +680,8 @@ function renderLbDrivers() {
               <div style="font-size:0.72rem;color:var(--muted)">${d.team}</div>
             </td>
             <td style="padding:6px 6px;text-align:right;color:var(--yellow);font-family:'VT323',monospace;font-size:1.05rem">${d.championship_pts}</td>
-            <td style="padding:6px 6px;text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${d.handicap}</td>
-            <td style="padding:6px 0;text-align:right;color:var(--cyan);font-family:'VT323',monospace;font-size:1.05rem">${d.hc_pts_season ?? '—'}</td>
+            <td style="padding:6px 6px;text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${parseFloat(d.handicap).toFixed(1)}</td>
+            <td style="padding:6px 0;text-align:right;color:var(--cyan);font-family:'VT323',monospace;font-size:1.05rem">${d.hc_pts_season != null ? parseFloat(d.hc_pts_season).toFixed(1) : '—'}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
