@@ -122,7 +122,7 @@ function startCountdown(deadlineDate) {
   function tick() {
     const el = document.getElementById('picks-countdown');
     if (!el) { clearCountdown(); return; }
-    const deadline = new Date(deadlineDate + 'T23:59:59');
+    const deadline = new Date(deadlineDate); // deadlineDate is now a full ISO UTC datetime
     const diff = deadline - new Date();
     if (diff <= 0) { el.textContent = 'fristen er passert'; clearCountdown(); return; }
     const d = Math.floor(diff / 86400000);
@@ -749,7 +749,7 @@ async function loadCalendar() {
               <span style="font-size:0.9rem;font-weight:600">${r.name}</span>
               ${sprintBadge}
             </div>
-            <div style="font-size:0.76rem;color:var(--muted);margin-top:3px">${r.circuit} · ${dateRange(r.date, r.has_sprint)}</div>
+            <div style="font-size:0.76rem;color:var(--muted);margin-top:3px">${r.circuit} · ${dateRange(r.date, r.has_sprint, r.fp1_at)}</div>
           </div>
           ${statusIcon}
         </div>`;
@@ -770,16 +770,21 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('nb-NO', { month: 'short', day: 'numeric' });
 }
 
-function dateRange(dateStr, hasSprint) {
+function dateRange(dateStr, hasSprint, fp1At) {
   if (!dateStr) return '';
-  const raceDay = new Date(dateStr + 'T00:00:00');
-  const startDay = new Date(raceDay);
-  startDay.setDate(startDay.getDate() - (hasSprint ? 3 : 2));
-  if (startDay.getMonth() === raceDay.getMonth()) {
-    const mon = raceDay.toLocaleDateString('nb-NO', { month: 'short' });
-    return `${startDay.getDate()}–${raceDay.getDate()} ${mon}`;
+  const raceDay = new Date(dateStr + 'T00:00:00Z');
+  let fp1Day;
+  if (fp1At) {
+    fp1Day = new Date(fp1At);
+  } else {
+    fp1Day = new Date(raceDay);
+    fp1Day.setUTCDate(fp1Day.getUTCDate() - (hasSprint ? 3 : 2));
   }
-  return `${formatDate(startDay.toISOString().split('T')[0])} – ${formatDate(dateStr)}`;
+  if (fp1Day.getUTCMonth() === raceDay.getUTCMonth()) {
+    const mon = raceDay.toLocaleDateString('nb-NO', { month: 'short', timeZone: 'UTC' });
+    return `${fp1Day.getUTCDate()}–${raceDay.getUTCDate()} ${mon}`;
+  }
+  return `${formatDate(fp1Day.toISOString().split('T')[0])} – ${formatDate(dateStr)}`;
 }
 
 // ── Bets ──────────────────────────────────────────────────────────────────
