@@ -174,14 +174,14 @@ async function loadTeam() {
         ? '<div class="locked-pill">🔒 LÅST</div>'
         : '<div class="open-pill">✓ ÅPENT</div>';
       const deadlineLine = settings.deadline && !picksLocked
-        ? `<div style="font-size:0.76rem;color:var(--muted);margin-top:4px">Frist: ${formatDate(settings.deadline)} · <span id="picks-countdown" style="color:var(--cyan)"></span></div>`
+        ? `<div style="font-size:0.76rem;color:var(--muted);margin-top:4px">Frist: ${formatDeadline(settings.deadline)} · <span id="picks-countdown" style="color:var(--cyan)"></span></div>`
         : '';
       nextEl.innerHTML = `
         <div class="next-race">
           <div>
             <div class="next-round">Runde ${nr.round}</div>
             <div class="next-name">${nr.name}</div>
-            <div class="next-detail">${nr.circuit} · ${formatDate(nr.date)}</div>
+            <div class="next-detail">${nr.circuit} · ${dateRange(nr.date, nr.has_sprint, nr.fp1_at)}</div>
             ${deadlineLine}
           </div>
           ${pill}
@@ -768,6 +768,14 @@ function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
   return d.toLocaleDateString('nb-NO', { month: 'short', day: 'numeric' });
+}
+
+function formatDeadline(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const date = d.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+  return `${date} ${time}`;
 }
 
 function dateRange(dateStr, hasSprint, fp1At) {
