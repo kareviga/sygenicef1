@@ -521,38 +521,36 @@ async function loadAdmin() {
       </table>`;
 
     document.getElementById('admin-users-list').innerHTML = users.map(u => `
-      <div class="race-row" style="align-items:center">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-weight:700">${u.username}</span>
-            ${u.is_admin ? '<span style="color:var(--pink);font-size:0.72rem;font-family:\'VT323\',monospace;letter-spacing:0.08em">ADMIN</span>' : ''}
-            ${u.username === currentUser.username ? '<span style="color:var(--muted);font-size:0.72rem">(deg)</span>' : ''}
-          </div>
-          <div style="font-size:0.78rem;color:var(--muted);margin-top:2px">
-            ${u.driver1 && u.driver2 ? `${u.driver1} · ${u.driver2}` : 'Ingen valg ennå'} · ${u.swaps_used || 0}/10 bytter
-          </div>
+      <div class="race-row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700">${u.username}</span>
+          ${u.is_admin ? '<span style="color:var(--pink);font-size:0.72rem;font-family:\'VT323\',monospace;letter-spacing:0.08em">ADMIN</span>' : ''}
+          ${u.username === currentUser.username ? '<span style="color:var(--muted);font-size:0.72rem">(deg)</span>' : ''}
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
+        <div style="font-size:0.78rem;color:var(--muted)">
+          ${u.driver1 && u.driver2 ? `${u.driver1} · ${u.driver2}` : 'Ingen valg ennå'} · ${u.swaps_used || 0}/10 bytter
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button onclick="resetUserPassword(${u.id}, '${u.username}')" style="
-            border:1px solid var(--border);background:transparent;
-            color:var(--muted);padding:5px 10px;border-radius:3px;
+            flex:1;border:1px solid var(--border);background:transparent;
+            color:var(--muted);padding:5px 8px;border-radius:3px;
             font-family:'VT323',monospace;font-size:0.95rem;
-            cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
+            cursor:pointer;letter-spacing:0.05em;
           ">Nytt passord</button>
           ${u.username !== currentUser.username ? `
             <button onclick="toggleUserAdmin(${u.id}, ${!u.is_admin})" style="
-              border:1px solid ${u.is_admin ? 'var(--pink)' : 'var(--border)'};
+              flex:1;border:1px solid ${u.is_admin ? 'var(--pink)' : 'var(--border)'};
               background:${u.is_admin ? 'rgba(255,0,170,0.08)' : 'transparent'};
               color:${u.is_admin ? 'var(--pink)' : 'var(--muted)'};
-              padding:5px 12px;border-radius:3px;
+              padding:5px 8px;border-radius:3px;
               font-family:'VT323',monospace;font-size:0.95rem;
-              cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
+              cursor:pointer;letter-spacing:0.05em;
             ">${u.is_admin ? 'Fjern admin' : 'Gjør til admin'}</button>
             <button onclick="deleteUser(${u.id}, '${u.username}')" style="
-              border:1px solid var(--pink);background:rgba(255,0,170,0.08);
-              color:var(--pink);padding:5px 10px;border-radius:3px;
+              flex:1;border:1px solid var(--pink);background:rgba(255,0,170,0.08);
+              color:var(--pink);padding:5px 8px;border-radius:3px;
               font-family:'VT323',monospace;font-size:0.95rem;
-              cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
+              cursor:pointer;letter-spacing:0.05em;
             ">Slett</button>
           ` : ''}
         </div>
