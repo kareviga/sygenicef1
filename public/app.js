@@ -11,6 +11,8 @@ let expandedRaceIds = new Set();
 let raceDetailSort = { col: 'race_pts', dir: 'desc' };
 let raceDetailCache = {};
 let countdownInterval = null;
+let calendarRaces = [];
+let expandedCalRounds = new Set();
 
 // ── API helper ───────────────────────────────────────────────────────────
 async function api(path, options = {}) {
@@ -718,47 +720,127 @@ async function toggleUserAdmin(userId, makeAdmin) {
 }
 
 // ── Kalender ──────────────────────────────────────────────────────────────
-async function loadCalendar() {
-  try {
-    const races = await api('/api/league/calendar');
-    const today = new Date().toISOString().split('T')[0];
-    let nextFound = false;
+const RACE_SESSIONS = {
+  1:  { fp1:'2026-03-06T00:30:00Z', fp2:'2026-03-06T04:00:00Z', fp3:'2026-03-07T00:30:00Z', quali:'2026-03-07T04:00:00Z', race:'2026-03-08T03:00:00Z' },
+  2:  { fp1:'2026-03-13T02:30:00Z', sprint_quali:'2026-03-13T06:30:00Z', sprint:'2026-03-14T02:30:00Z', quali:'2026-03-14T06:30:00Z', race:'2026-03-15T06:00:00Z' },
+  3:  { fp1:'2026-03-27T01:30:00Z', fp2:'2026-03-27T05:00:00Z', fp3:'2026-03-28T01:30:00Z', quali:'2026-03-28T05:00:00Z', race:'2026-03-29T05:00:00Z' },
+  4:  { fp1:'2026-05-01T16:30:00Z', sprint_quali:'2026-05-01T20:30:00Z', sprint:'2026-05-02T16:30:00Z', quali:'2026-05-02T20:30:00Z', race:'2026-05-03T20:00:00Z' },
+  5:  { fp1:'2026-05-22T16:30:00Z', sprint_quali:'2026-05-22T20:30:00Z', sprint:'2026-05-23T16:30:00Z', quali:'2026-05-23T20:30:00Z', race:'2026-05-24T20:00:00Z' },
+  6:  { fp1:'2026-06-05T11:30:00Z', fp2:'2026-06-05T15:00:00Z', fp3:'2026-06-06T10:30:00Z', quali:'2026-06-06T14:00:00Z', race:'2026-06-07T13:00:00Z' },
+  7:  { fp1:'2026-06-12T11:30:00Z', fp2:'2026-06-12T15:00:00Z', fp3:'2026-06-13T10:30:00Z', quali:'2026-06-13T14:00:00Z', race:'2026-06-14T13:00:00Z' },
+  8:  { fp1:'2026-06-26T11:30:00Z', fp2:'2026-06-26T15:00:00Z', fp3:'2026-06-27T10:30:00Z', quali:'2026-06-27T14:00:00Z', race:'2026-06-28T13:00:00Z' },
+  9:  { fp1:'2026-07-03T10:30:00Z', sprint_quali:'2026-07-03T14:30:00Z', sprint:'2026-07-04T10:30:00Z', quali:'2026-07-04T14:30:00Z', race:'2026-07-05T14:00:00Z' },
+  10: { fp1:'2026-07-17T11:30:00Z', fp2:'2026-07-17T15:00:00Z', fp3:'2026-07-18T10:30:00Z', quali:'2026-07-18T14:00:00Z', race:'2026-07-19T13:00:00Z' },
+  11: { fp1:'2026-07-24T11:30:00Z', fp2:'2026-07-24T15:00:00Z', fp3:'2026-07-25T10:30:00Z', quali:'2026-07-25T14:00:00Z', race:'2026-07-26T13:00:00Z' },
+  12: { fp1:'2026-08-21T10:30:00Z', sprint_quali:'2026-08-21T14:30:00Z', sprint:'2026-08-22T10:30:00Z', quali:'2026-08-22T14:30:00Z', race:'2026-08-23T13:00:00Z' },
+  13: { fp1:'2026-09-04T11:30:00Z', fp2:'2026-09-04T15:00:00Z', fp3:'2026-09-05T10:30:00Z', quali:'2026-09-05T14:00:00Z', race:'2026-09-06T13:00:00Z' },
+  14: { fp1:'2026-09-11T11:30:00Z', fp2:'2026-09-11T15:00:00Z', fp3:'2026-09-12T10:30:00Z', quali:'2026-09-12T14:00:00Z', race:'2026-09-13T13:00:00Z' },
+  15: { fp1:'2026-09-25T09:30:00Z', fp2:'2026-09-25T13:00:00Z', fp3:'2026-09-26T08:30:00Z', quali:'2026-09-26T12:00:00Z', race:'2026-09-27T12:00:00Z' },
+  16: { fp1:'2026-10-09T09:30:00Z', sprint_quali:'2026-10-09T13:30:00Z', sprint:'2026-10-10T09:30:00Z', quali:'2026-10-10T13:30:00Z', race:'2026-10-11T12:00:00Z' },
+  17: { fp1:'2026-10-23T16:30:00Z', fp2:'2026-10-23T20:00:00Z', fp3:'2026-10-24T17:30:00Z', quali:'2026-10-24T21:00:00Z', race:'2026-10-25T18:00:00Z' },
+  18: { fp1:'2026-10-30T16:30:00Z', fp2:'2026-10-30T20:00:00Z', fp3:'2026-10-31T16:30:00Z', quali:'2026-10-31T20:00:00Z', race:'2026-11-01T19:00:00Z' },
+  19: { fp1:'2026-11-06T13:30:00Z', sprint_quali:'2026-11-06T17:30:00Z', sprint:'2026-11-07T13:30:00Z', quali:'2026-11-07T17:30:00Z', race:'2026-11-08T16:00:00Z' },
+  20: { fp1:'2026-11-20T01:30:00Z', fp2:'2026-11-20T05:00:00Z', fp3:'2026-11-21T01:30:00Z', quali:'2026-11-21T05:00:00Z', race:'2026-11-22T05:00:00Z' },
+  21: { fp1:'2026-11-27T12:30:00Z', sprint_quali:'2026-11-27T16:30:00Z', sprint:'2026-11-28T12:30:00Z', quali:'2026-11-28T16:30:00Z', race:'2026-11-29T16:00:00Z' },
+  22: { fp1:'2026-12-04T08:30:00Z', fp2:'2026-12-04T12:00:00Z', fp3:'2026-12-05T09:30:00Z', quali:'2026-12-05T13:00:00Z', race:'2026-12-06T12:00:00Z' },
+};
 
-    document.getElementById('cal-list').innerHTML = races.map(r => {
-      const isNext = !r.is_completed && !nextFound && r.date >= today;
-      if (isNext) nextFound = true;
+const SESSION_LABELS = {
+  fp1: 'FP1', fp2: 'FP2', fp3: 'FP3',
+  sprint_quali: 'Sprint K.', sprint: 'Sprint',
+  quali: 'Kval', race: 'Race',
+};
 
-      const sprintBadge = r.has_sprint
-        ? `<span style="background:rgba(255,230,0,0.12);border:1px solid var(--yellow);color:var(--yellow);font-family:'VT323',monospace;font-size:0.82rem;padding:1px 7px;border-radius:3px;text-shadow:0 0 6px var(--yellow);white-space:nowrap;letter-spacing:0.06em">SPRINT</span>`
-        : '';
+function formatSessionTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const days = ['Søn','Man','Tir','Ons','Tor','Fre','Lør'];
+  const day = days[d.getDay()];
+  const time = d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+  return `${day} ${time}`;
+}
 
-      const statusIcon = r.is_completed
-        ? `<span style="color:var(--green);font-family:'VT323',monospace;font-size:1.2rem;text-shadow:0 0 6px var(--green)">✓</span>`
-        : isNext
-          ? `<span style="color:var(--cyan);font-family:'VT323',monospace;font-size:1.2rem;text-shadow:0 0 6px var(--cyan)">▶</span>`
-          : `<span style="color:var(--border);font-family:'VT323',monospace;font-size:1rem">○</span>`;
+function toggleCalRace(round) {
+  if (expandedCalRounds.has(round)) {
+    expandedCalRounds.delete(round);
+  } else {
+    expandedCalRounds.add(round);
+  }
+  renderCalendar();
+}
 
-      const rowStyle = r.is_completed
-        ? 'opacity:0.45'
-        : isNext
-          ? 'border-color:var(--cyan);background:rgba(0,255,255,0.04);box-shadow:0 0 10px rgba(0,255,255,0.08)'
-          : r.has_sprint
-            ? 'border-color:rgba(255,230,0,0.3)'
-            : '';
+function renderCalendar() {
+  const today = new Date().toISOString().split('T')[0];
+  let nextFound = false;
 
-      return `
-        <div class="race-row" style="${rowStyle}">
+  document.getElementById('cal-list').innerHTML = calendarRaces.map(r => {
+    const isNext = !r.is_completed && !nextFound && r.date >= today;
+    if (isNext) nextFound = true;
+    const isExpanded = expandedCalRounds.has(r.round);
+
+    const sprintBadge = r.has_sprint
+      ? `<span style="background:rgba(255,230,0,0.12);border:1px solid var(--yellow);color:var(--yellow);font-family:'VT323',monospace;font-size:0.82rem;padding:1px 7px;border-radius:3px;text-shadow:0 0 6px var(--yellow);white-space:nowrap;letter-spacing:0.06em">SPRINT</span>`
+      : '';
+
+    const statusIcon = r.is_completed
+      ? `<span style="color:var(--green);font-family:'VT323',monospace;font-size:1.2rem;text-shadow:0 0 6px var(--green)">✓</span>`
+      : isNext
+        ? `<span style="color:var(--cyan);font-family:'VT323',monospace;font-size:1.2rem;text-shadow:0 0 6px var(--cyan)">▶</span>`
+        : `<span style="color:var(--border);font-family:'VT323',monospace;font-size:1rem">○</span>`;
+
+    const rowStyle = r.is_completed
+      ? 'opacity:0.45'
+      : isNext
+        ? 'border-color:var(--cyan);background:rgba(0,255,255,0.04);box-shadow:0 0 10px rgba(0,255,255,0.08)'
+        : r.has_sprint
+          ? 'border-color:rgba(255,230,0,0.3)'
+          : '';
+
+    const chevron = `<span style="font-size:0.8rem;color:var(--muted);margin-left:4px;transition:transform 0.2s;display:inline-block;transform:rotate(${isExpanded ? '180' : '0'}deg)">▼</span>`;
+
+    const sessions = RACE_SESSIONS[r.round] || {};
+    const sessionOrder = r.has_sprint
+      ? ['fp1','sprint_quali','sprint','quali','race']
+      : ['fp1','fp2','fp3','quali','race'];
+
+    const sessionRows = sessionOrder.map(key => {
+      const iso = sessions[key];
+      if (!iso) return '';
+      const isRace = key === 'race';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <span style="font-size:0.75rem;color:${isRace ? 'var(--cyan)' : 'var(--muted)'};font-family:'VT323',monospace;letter-spacing:0.05em;min-width:70px">${SESSION_LABELS[key]}</span>
+        <span style="font-size:0.78rem;color:${isRace ? 'var(--fg)' : 'var(--muted)'};font-weight:${isRace ? '600' : '400'}">${formatSessionTime(iso)}</span>
+      </div>`;
+    }).join('');
+
+    const expandedPanel = isExpanded ? `
+      <div style="padding:8px 10px 6px;border-top:1px solid var(--border);background:rgba(0,0,0,0.2)">
+        ${sessionRows}
+      </div>` : '';
+
+    return `
+      <div class="race-row" style="${rowStyle};flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;overflow:hidden;cursor:pointer" onclick="toggleCalRace(${r.round})">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px">
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
               <span class="race-round">R${r.round}</span>
               <span style="font-size:0.9rem;font-weight:600">${r.name}</span>
               ${sprintBadge}
+              ${chevron}
             </div>
             <div style="font-size:0.76rem;color:var(--muted);margin-top:3px">${r.circuit} · ${dateRange(r.date, r.has_sprint, r.fp1_at)}</div>
           </div>
           ${statusIcon}
-        </div>`;
-    }).join('') || '<div class="empty">Ingen race funnet</div>';
+        </div>
+        ${expandedPanel}
+      </div>`;
+  }).join('') || '<div class="empty">Ingen race funnet</div>';
+}
+
+async function loadCalendar() {
+  try {
+    calendarRaces = await api('/api/league/calendar');
+    renderCalendar();
   } catch (err) {
     showToast(err.message, 'error');
   }
