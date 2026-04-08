@@ -82,12 +82,25 @@ router.put('/', requireAuth, async (req, res) => {
     if (!d1 || !d2) return res.status(400).json({ error: 'Invalid driver selection' });
 
     const existing = await db.findOne('user_picks', r => r.user_id === req.user.id);
+    const hasExisting = !!(existing?.driver1_id);
+    const currentSwaps = existing?.swaps_used || 0;
 
-    if (existing?.driver1_id && (existing.swaps_used || 0) >= 10) {
-      return res.status(400).json({ error: 'Du har brukt alle 10 byttene dine for sesongen' });
+    // Count only the drivers that actually changed
+    let changesCount = 0;
+    if (hasExisting) {
+      if (driver1_id !== existing.driver1_id) changesCount++;
+      if (driver2_id !== existing.driver2_id) changesCount++;
     }
 
-    const swapsUsed = existing?.driver1_id ? (existing.swaps_used + 1) : (existing?.swaps_used || 0);
+    if (hasExisting && currentSwaps + changesCount > 10) {
+      const remaining = 10 - currentSwaps;
+      if (remaining <= 0) {
+        return res.status(400).json({ error: 'Du har brukt alle 10 byttene dine for sesongen' });
+      }
+      return res.status(400).json({ error: `Du har bare ${remaining} bytte${remaining === 1 ? '' : 'r'} igjen — du kan ikke bytte begge sjåfører samtidig` });
+    }
+
+    const swapsUsed = currentSwaps + changesCount;
 
     await db.upsert('user_picks', 'user_id', req.user.id, {
       user_id: req.user.id, driver1_id, driver2_id,

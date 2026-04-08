@@ -333,6 +333,7 @@ async function loadDrivers() {
 
     document.getElementById('picks-lock-banner').style.display = picksLocked ? 'block' : 'none';
     document.getElementById('picks-open-banner').style.display = picksLocked ? 'none' : 'block';
+    document.getElementById('drivers-swaps').textContent = `${picks.swaps_used || 0}/10 bytter brukt`;
 
     renderPicksGrid();
   } catch (err) {
