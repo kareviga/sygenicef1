@@ -135,6 +135,8 @@ async function clearRaceScores(raceId) {
   await db.delete('race_results', r => r.race_id === raceId);
   await db.delete('user_race_scores', r => r.race_id === raceId);
   await db.update('races', r => r.id === raceId, { is_completed: false });
+  // Reset settled/void bets for this race back to accepted so they re-settle on new results
+  await db.update('bets', b => b.race_id === raceId && (b.status === 'settled' || b.status === 'void'), { status: 'accepted', winner_id: null, settled_at: null });
 
   const [drivers, completedRaces, allResults] = await Promise.all([
     db.all('drivers'),
