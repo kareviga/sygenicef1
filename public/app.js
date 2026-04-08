@@ -265,9 +265,9 @@ function renderDetailTable(drivers, raceRow) {
       <table class="detail-table">
         <thead><tr>
           <th onclick="sortRaceDetail('short_name')">Racer${arrow('short_name')}</th>
-          <th onclick="sortRaceDetail('race_pts')">Race pts${arrow('race_pts')}</th>
-          <th onclick="sortRaceDetail('hc')">HC ×${arrow('hc')}</th>
-          <th onclick="sortRaceDetail('hc_pts')">HC pts${arrow('hc_pts')}</th>
+          <th onclick="sortRaceDetail('race_pts')" style="color:var(--yellow)">Race pts${arrow('race_pts')}</th>
+          <th onclick="sortRaceDetail('hc')" style="color:var(--purple)">HCx${arrow('hc')}</th>
+          <th onclick="sortRaceDetail('hc_pts')" style="color:var(--cyan)">HC pts${arrow('hc_pts')}</th>
         </tr></thead>
         <tbody>
           ${sorted.map(d => {
@@ -275,9 +275,9 @@ function renderDetailTable(drivers, raceRow) {
             return `
               <tr${mine ? ' class="my-driver-row"' : ''}>
                 <td><span style="color:${mine ? d.team_color : 'var(--muted)'};${mine ? 'font-weight:700' : ''}">${d.short_name}</span></td>
-                <td>${Math.round(d.race_pts)}</td>
-                <td>${parseFloat(d.hc).toFixed(1)}</td>
-                <td${mine ? ' style="color:var(--cyan);font-family:\'VT323\',monospace;font-size:1rem"' : ''}>${parseFloat(d.hc_pts).toFixed(1)}</td>
+                <td style="color:var(--yellow)">${Math.round(d.race_pts)}</td>
+                <td style="color:var(--purple)">${parseFloat(d.hc).toFixed(1)}</td>
+                <td style="color:var(--cyan)${mine ? ';font-family:\'VT323\',monospace;font-size:1rem' : ''}">${parseFloat(d.hc_pts).toFixed(1)}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -334,7 +334,13 @@ async function loadDrivers() {
 
     document.getElementById('picks-lock-banner').style.display = picksLocked ? 'block' : 'none';
     document.getElementById('picks-open-banner').style.display = picksLocked ? 'none' : 'block';
-    document.getElementById('drivers-swaps').textContent = `${picks.swaps_used || 0}/10 bytter brukt`;
+    const swapsUsed = picks.swaps_used || 0;
+    const swapsLeft = 10 - swapsUsed;
+    const swapsLeftEl = document.getElementById('drivers-swaps-left');
+    swapsLeftEl.textContent = swapsLeft;
+    swapsLeftEl.style.color = swapsLeft <= 2 ? 'var(--pink)' : swapsLeft <= 5 ? 'var(--yellow)' : 'var(--green)';
+    swapsLeftEl.style.textShadow = swapsLeft <= 2 ? '0 0 6px var(--pink)' : swapsLeft <= 5 ? '0 0 6px var(--yellow)' : '0 0 6px var(--green)';
+    document.getElementById('drivers-swaps-label').textContent = `av 10 bytter igjen`;
 
     renderPicksGrid();
   } catch (err) {
@@ -388,8 +394,46 @@ function togglePick(driverId) {
   renderPicksGrid();
 }
 
-async function savePicks() {
+function savePicks() {
   if (selectedDriverIds.length !== 2) return;
+
+  // Calculate which drivers are actually changing
+  const currentIds = [];
+  if (currentPicks.driver1) currentIds.push(currentPicks.driver1.id);
+  if (currentPicks.driver2) currentIds.push(currentPicks.driver2.id);
+
+  const removedIds = currentIds.filter(id => !selectedDriverIds.includes(id));
+  const addedIds = selectedDriverIds.filter(id => !currentIds.includes(id));
+  const changesCount = addedIds.length;
+
+  if (changesCount === 0) {
+    showToast('Ingen endringer å lagre', 'error');
+    return;
+  }
+
+  // Build swap rows summary
+  const removedDrivers = removedIds.map(id => allDrivers.find(d => d.id === id));
+  const addedDrivers = addedIds.map(id => allDrivers.find(d => d.id === id));
+
+  document.getElementById('confirm-summary').innerHTML = removedDrivers.map((d, i) => `
+    <div class="confirm-swap-row">
+      <span class="confirm-driver-out">#${d.number} ${d.short_name}</span>
+      <span class="confirm-arrow">→</span>
+      <span class="confirm-driver-in">${addedDrivers[i].short_name} #${addedDrivers[i].number}</span>
+    </div>
+  `).join('');
+
+  const swapsLeft = 10 - (currentPicks.swaps_used || 0);
+  const swapsAfter = swapsLeft - changesCount;
+  document.getElementById('confirm-cost-text').innerHTML =
+    `Dette bruker <strong>${changesCount} bytte${changesCount > 1 ? 'r' : ''}</strong>. ` +
+    `Du vil ha <strong>${swapsAfter} av 10</strong> bytter igjen.`;
+
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+async function confirmSavePicks() {
+  document.getElementById('confirm-modal').style.display = 'none';
   try {
     await api('/api/picks', {
       method: 'PUT',
@@ -504,6 +548,12 @@ async function loadAdmin() {
               font-family:'VT323',monospace;font-size:0.95rem;
               cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
             ">${u.is_admin ? 'Fjern admin' : 'Gjør til admin'}</button>
+            <button onclick="deleteUser(${u.id}, '${u.username}')" style="
+              border:1px solid var(--pink);background:rgba(255,0,170,0.08);
+              color:var(--pink);padding:5px 10px;border-radius:3px;
+              font-family:'VT323',monospace;font-size:0.95rem;
+              cursor:pointer;white-space:nowrap;letter-spacing:0.05em;
+            ">Slett</button>
           ` : ''}
         </div>
       </div>`).join('') || '<div class="empty">Ingen brukere ennå</div>';
@@ -712,6 +762,17 @@ async function toggleUserAdmin(userId, makeAdmin) {
       body: JSON.stringify({ is_admin: makeAdmin }),
     });
     showToast(makeAdmin ? 'Admin-rettigheter gitt ✓' : 'Admin-rettigheter fjernet', 'success');
+    await loadAdmin();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function deleteUser(userId, username) {
+  if (!confirm(`Slett brukeren «${username}»? Dette kan ikke angres.`)) return;
+  try {
+    await api(`/api/admin/users/${userId}`, { method: 'DELETE' });
+    showToast(`${username} er slettet`, 'success');
     await loadAdmin();
   } catch (err) {
     showToast(err.message, 'error');

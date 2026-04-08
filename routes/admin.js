@@ -162,6 +162,27 @@ router.put('/users/:id/role', requireAdmin, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/users/:id
+router.delete('/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id);
+    const allUsers = await db.all('users');
+    const target = allUsers.find(u => u.id === targetId);
+    if (!target) return res.status(404).json({ error: 'Bruker ikke funnet' });
+    if (target.is_admin) {
+      const remainingAdmins = allUsers.filter(u => u.is_admin && u.id !== targetId);
+      if (remainingAdmins.length === 0) {
+        return res.status(400).json({ error: 'Kan ikke slette den eneste adminen' });
+      }
+    }
+    await db.delete('user_picks', r => r.user_id === targetId);
+    await db.delete('users', u => u.id === targetId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/fetch-results?round=X&year=Y
 router.get('/fetch-results', requireAdmin, async (req, res) => {
   const { round, year } = req.query;

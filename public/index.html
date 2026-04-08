@@ -450,6 +450,38 @@
     padding: 10px 14px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 12px;
   }
 
+  /* ── CONFIRM MODAL ── */
+  .confirm-modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8,0,15,0.88); backdrop-filter: blur(6px);
+  }
+  .confirm-modal {
+    background: var(--card2); border: 1px solid var(--cyan);
+    border-radius: 8px; padding: 24px; margin: 16px;
+    max-width: 360px; width: 100%;
+    box-shadow: 0 0 32px rgba(0,255,255,0.2);
+  }
+  .confirm-modal-title {
+    font-family: 'VT323', monospace; font-size: 1.5rem;
+    color: var(--cyan); text-shadow: 0 0 8px var(--cyan);
+    margin-bottom: 16px; letter-spacing: 0.05em;
+  }
+  .confirm-swap-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .confirm-swap-row:last-child { border-bottom: none; }
+  .confirm-driver-out { color: var(--pink); font-weight: 600; font-size: 0.95rem; flex: 1; }
+  .confirm-driver-in  { color: var(--green); font-weight: 600; font-size: 0.95rem; flex: 1; text-align: right; }
+  .confirm-arrow { color: var(--muted); font-size: 1rem; }
+  .confirm-cost {
+    margin-top: 14px; padding: 10px 12px;
+    background: rgba(255,230,0,0.06); border: 1px solid rgba(255,230,0,0.25);
+    border-radius: 4px; font-size: 0.88rem; color: var(--sub);
+  }
+  .confirm-cost strong { color: var(--yellow); }
+
   /* ── TOAST ── */
   .toast {
     position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%);
@@ -583,7 +615,10 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div>
         <div style="font-size:0.82rem;color:var(--muted)">Sortert etter VM-poeng</div>
-        <div id="drivers-swaps" style="font-size:0.8rem;color:var(--muted);margin-top:2px">0/10 bytter brukt</div>
+        <div style="margin-top:4px;display:flex;align-items:baseline;gap:8px">
+          <span id="drivers-swaps-left" style="font-family:'VT323',monospace;font-size:1.2rem;color:var(--green);text-shadow:0 0 6px var(--green)">10</span>
+          <span style="font-size:0.8rem;color:var(--muted)" id="drivers-swaps-label">bytter igjen</span>
+        </div>
       </div>
       <div id="picks-count" style="font-family:'VT323',monospace;color:var(--yellow);font-size:1.4rem;text-shadow:0 0 8px var(--yellow)">0/2</div>
     </div>
@@ -614,7 +649,7 @@
       <p>Jo bedre en sjåfør gjør det i VM-sammendraget, desto <strong style="color:var(--pink)">lavere multiplikator</strong> får du for den sjåføren.</p>
     </div>
 
-    <div class="section-label">HC-multiplikator</div>
+    <div class="section-label">HCx — Handicap-multiplikatoren</div>
     <div class="points-block">
       <p>Multiplikatoren beregnes automatisk etter hvert race:</p>
       <div class="formula">
@@ -658,6 +693,13 @@
       <p>🏆 <strong style="color:var(--yellow)">Favorittstrategi:</strong> Velg de to førerne som leder WDC for stabilitet, men med lav multiplikator.</p>
       <p>🎲 <strong style="color:var(--pink)">Underdogstrategi:</strong> Velg midtfelt-sjåfører med høy multiplikator — ett godt resultat kan gi enorme poeng!</p>
       <p>⚡ <strong style="color:var(--green)">Bytter:</strong> Du kan bytte sjåfører inntil <strong>10 ganger</strong> i løpet av sesongen — men ikke i race-helgen.</p>
+    </div>
+
+    <div class="section-label">Emils bettinghule</div>
+    <div class="points-block">
+      <p>For den som trenger litt ekstra spenning kan du utfordre andre spillere i <strong style="color:var(--pink)">Emils bettinghule</strong>.</p>
+      <p>Velg to sjåfører, sett en innsats i ligaroeng, og utfordre en annen spiller til å ta den andre sjåføren. Den sjåføren som scorer flest HC-poeng i et gitt race vinner innsatsen.</p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:4px">Bettet avgjøres etter at raceresultatene er lagt inn. Uavgjort gir pengene tilbake.</p>
     </div>
   </div>
 
@@ -784,6 +826,19 @@
     </button>
   </nav>
 
+</div>
+
+<!-- ── CONFIRM PICKS MODAL ── -->
+<div id="confirm-modal" class="confirm-modal-overlay" style="display:none">
+  <div class="confirm-modal">
+    <div class="confirm-modal-title">BEKREFT ENDRING</div>
+    <div id="confirm-summary"></div>
+    <div class="confirm-cost" id="confirm-cost-text"></div>
+    <div style="display:flex;gap:12px;margin-top:18px">
+      <button class="btn" onclick="document.getElementById('confirm-modal').style.display='none'" style="flex:1">AVBRYT</button>
+      <button class="btn btn-cyan" onclick="confirmSavePicks()" style="flex:1">BEKREFT</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
