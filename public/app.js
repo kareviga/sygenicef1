@@ -20,7 +20,7 @@ let lbIsLive = false;
 let podiumDetailUser = null;
 let expandedLbUsers = new Set();
 let lbDrivers = [];
-let lbDriverSort = 'wdc';
+let lbDriverSort = { col: 'wdc', dir: 'desc' };
 
 // ── API helper ───────────────────────────────────────────────────────────
 async function api(path, options = {}) {
@@ -648,47 +648,52 @@ function renderLbDrivers() {
   const el = document.getElementById('lb-drivers');
   if (!el || lbDrivers.length === 0) return;
 
+  const { col, dir } = lbDriverSort;
   const sorted = [...lbDrivers].sort((a, b) => {
-    if (lbDriverSort === 'hcx')     return b.handicap - a.handicap;
-    if (lbDriverSort === 'hcpts')   return b.hc_pts_season - a.hc_pts_season;
-    return b.championship_pts - a.championship_pts;
+    let av, bv;
+    if (col === 'hcx')   { av = a.handicap;        bv = b.handicap; }
+    else if (col === 'hcpts') { av = a.hc_pts_season || 0; bv = b.hc_pts_season || 0; }
+    else                 { av = a.championship_pts; bv = b.championship_pts; }
+    return dir === 'desc' ? bv - av : av - bv;
   });
 
-  [['lb-sort-wdc','wdc'], ['lb-sort-hcx','hcx'], ['lb-sort-hcpts','hcpts']].forEach(([id, mode]) => {
-    const btn = document.getElementById(id);
-    if (btn) btn.style.opacity = lbDriverSort === mode ? '1' : '0.4';
-  });
+  const arrow = c => col === c ? (dir === 'desc' ? ' ▼' : ' ▲') : '';
+  const thStyle = (color, align = 'right') =>
+    `text-align:${align};padding:5px 6px;color:${color};font-family:'VT323',monospace;font-size:0.95rem;cursor:pointer;user-select:none`;
 
   el.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
-      <thead>
-        <tr>
-          <th style="text-align:left;padding:5px 0;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">#</th>
-          <th style="text-align:left;padding:5px 6px;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">Fører</th>
-          <th style="text-align:right;padding:5px 6px;color:var(--yellow);font-family:'VT323',monospace;font-size:0.95rem">WDC pts</th>
-          <th style="text-align:right;padding:5px 6px;color:var(--purple);font-family:'VT323',monospace;font-size:0.95rem">HCx</th>
-          <th style="text-align:right;padding:5px 0;color:var(--cyan);font-family:'VT323',monospace;font-size:0.95rem">HC pts</th>
-        </tr>
-      </thead>
+    <table class="detail-table" style="width:100%">
+      <thead><tr>
+        <th style="${thStyle('var(--muted)','left')};padding-left:0" onclick="setLbDriverSort('name')">#</th>
+        <th style="${thStyle('var(--muted)','left')}" onclick="setLbDriverSort('name')">Fører</th>
+        <th style="${thStyle('var(--yellow)')}" onclick="setLbDriverSort('wdc')">WDC pts${arrow('wdc')}</th>
+        <th style="${thStyle('var(--purple)')}" onclick="setLbDriverSort('hcx')">HCx${arrow('hcx')}</th>
+        <th style="${thStyle('var(--cyan)')};padding-right:0" onclick="setLbDriverSort('hcpts')">HC pts${arrow('hcpts')}</th>
+      </tr></thead>
       <tbody>
         ${sorted.map((d, i) => `
-          <tr style="border-top:1px solid var(--border)">
-            <td style="padding:6px 0;color:var(--muted)">${i + 1}</td>
-            <td style="padding:6px 6px">
+          <tr>
+            <td style="color:var(--muted);padding-left:0">${i + 1}</td>
+            <td>
               <span style="color:${d.team_color};font-weight:700">#${d.number}</span>
               <span style="margin-left:5px">${d.short_name}</span>
               <div style="font-size:0.72rem;color:var(--muted)">${d.team}</div>
             </td>
-            <td style="padding:6px 6px;text-align:right;color:var(--yellow);font-family:'VT323',monospace;font-size:1.05rem">${d.championship_pts}</td>
-            <td style="padding:6px 6px;text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${parseFloat(d.handicap).toFixed(1)}</td>
-            <td style="padding:6px 0;text-align:right;color:var(--cyan);font-family:'VT323',monospace;font-size:1.05rem">${d.hc_pts_season != null ? parseFloat(d.hc_pts_season).toFixed(1) : '—'}</td>
+            <td style="text-align:right;color:var(--yellow);font-family:'VT323',monospace;font-size:1.05rem">${d.championship_pts}</td>
+            <td style="text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${parseFloat(d.handicap).toFixed(1)}</td>
+            <td style="text-align:right;color:var(--cyan);font-family:'VT323',monospace;font-size:1.05rem;padding-right:0">${d.hc_pts_season != null ? parseFloat(d.hc_pts_season).toFixed(1) : '—'}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
 }
 
-function setLbDriverSort(mode) {
-  lbDriverSort = mode;
+function setLbDriverSort(col) {
+  if (col === 'name') return; // name column not sortable
+  if (lbDriverSort.col === col) {
+    lbDriverSort.dir = lbDriverSort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    lbDriverSort = { col, dir: 'desc' };
+  }
   renderLbDrivers();
 }
 
