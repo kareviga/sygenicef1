@@ -11,9 +11,16 @@ let expandedRaceIds = new Set();
 let raceDetailSort = { col: 'race_pts', dir: 'desc' };
 let raceDetailCache = {};
 let countdownInterval = null;
+let headerCountdownInterval = null;
+let headerDeadline = null;
+let headerNextRace = null;
 let calendarRaces = [];
 let expandedCalRounds = new Set();
 let lbHistory = null;
+let lbStandings = [];
+let lbLastRound = null;
+let lbIsLive = false;
+let podiumDetailUser = null;
 let expandedLbUsers = new Set();
 let lbDrivers = [];
 let lbDriverSort = 'wdc';
@@ -128,7 +135,7 @@ function startCountdown(deadlineDate) {
   function tick() {
     const el = document.getElementById('picks-countdown');
     if (!el) { clearCountdown(); return; }
-    const deadline = new Date(deadlineDate); // deadlineDate is now a full ISO UTC datetime
+    const deadline = new Date(deadlineDate);
     const diff = deadline - new Date();
     if (diff <= 0) { el.textContent = 'fristen er passert'; clearCountdown(); return; }
     const d = Math.floor(diff / 86400000);
@@ -142,6 +149,39 @@ function startCountdown(deadlineDate) {
   countdownInterval = setInterval(tick, 60000);
 }
 
+function startHeaderCountdown(deadlineDate, raceName) {
+  if (headerCountdownInterval) clearInterval(headerCountdownInterval);
+  function tick() {
+    const pill = document.getElementById('header-pill');
+    if (!pill) return;
+    const diff = new Date(deadlineDate) - new Date();
+    if (diff <= 0) { pill.textContent = raceName; return; }
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    if (d > 0)      pill.textContent = `${raceName} · ${d}d ${h}t`;
+    else if (h > 0) pill.textContent = `${raceName} · ${h}t ${m}m`;
+    else            pill.textContent = `${raceName} · ${m}m ${s}s`;
+  }
+  tick();
+  headerCountdownInterval = setInterval(tick, 1000);
+}
+
+function animateScore(el, target) {
+  const duration = 700;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    const val = target * ease;
+    el.textContent = Number.isInteger(target) ? Math.round(val) : val.toFixed(1);
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = Number.isInteger(target) ? target : target.toFixed(1);
+  }
+  requestAnimationFrame(step);
+}
+
 // ── Mitt lag ──────────────────────────────────────────────────────────────
 async function loadTeam() {
   try {
@@ -153,7 +193,9 @@ async function loadTeam() {
     ]);
 
     picksLocked = settings.picks_locked;
-    updateHeaderPill(picksLocked);
+    headerNextRace = settings.next_race;
+    headerDeadline = settings.deadline;
+    updateHeaderPill(picksLocked, settings.next_race, settings.deadline);
 
     const standings = standingsData.standings;
     const myStanding = standings.find(s => s.is_me);
@@ -366,8 +408,8 @@ function renderPicksGrid() {
         <div class="driver-name">${d.short_name}</div>
         <div class="driver-team" style="color:${d.team_color}">${d.team}</div>
         <div class="pick-hf">
-          <span>${d.championship_pts} WDC pts</span>
-          <span class="mult">×${d.handicap}</span>
+          <span style="font-size:0.8rem">${d.championship_pts} pts</span>
+          <span class="hcx-pill">×${d.handicap}</span>
         </div>
       </div>`;
   }).join('');
@@ -452,6 +494,17 @@ async function confirmSavePicks() {
 
 // ── Tabell ────────────────────────────────────────────────────────────────
 async function loadStandings() {
+  // Show skeleton while loading
+  document.getElementById('lb-list').innerHTML = [1,2,3,4,5].map(() => `
+    <div class="skel-row">
+      <div class="skel" style="width:36px;height:32px"></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="skel" style="width:55%;height:14px"></div>
+        <div class="skel" style="width:70%;height:11px"></div>
+      </div>
+      <div class="skel" style="width:48px;height:32px"></div>
+    </div>`).join('');
+
   try {
     const [data, historyData, driversData] = await Promise.all([
       api('/api/league/standings'),
@@ -461,14 +514,15 @@ async function loadStandings() {
 
     lbHistory = historyData;
     lbDrivers = driversData;
+    lbStandings = data.standings;
+    lbLastRound = data.last_round;
+    lbIsLive = data.is_live;
 
-    const { standings, last_round, is_live } = data;
+    document.getElementById('lb-sub').textContent = data.last_round
+      ? `${data.standings.length} spillere · ${data.is_live ? `R${data.last_round} pågår` : `Førervalg runde ${data.last_round}`}`
+      : `${data.standings.length} spillere`;
 
-    document.getElementById('lb-sub').textContent = last_round
-      ? `${standings.length} spillere · ${is_live ? `R${last_round} pågår` : `Førervalg runde ${last_round}`}`
-      : `${standings.length} spillere`;
-
-    renderStandings(standings, last_round, is_live);
+    renderStandings(lbStandings, lbLastRound, lbIsLive);
     renderLbDrivers();
   } catch (err) {
     showToast(err.message, 'error');
@@ -476,41 +530,95 @@ async function loadStandings() {
 }
 
 function renderStandings(standings, last_round, is_live) {
-  const medals = ['🥇', '🥈', '🥉'];
   const colors = ['gold', 'silver', 'bronze'];
+  const medals = ['🥇', '🥈', '🥉'];
+  const roundLabel = () => is_live
+    ? `<span style="color:var(--cyan);font-size:0.65rem">(R${last_round} · pågår)</span>`
+    : last_round ? `<span style="color:var(--muted);font-size:0.65rem">(R${last_round})</span>` : '';
 
-  document.getElementById('lb-list').innerHTML = standings.map((s, i) => {
-    const rankLabel = i < 3
-      ? `<div class="lb-rank ${colors[i]}">${medals[i]}</div>`
-      : `<div class="lb-rank" style="color:var(--muted)">#${i + 1}</div>`;
+  const el = document.getElementById('lb-list');
+  let html = '';
 
-    const scoreStyle = s.is_me && i >= 3 ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : '';
+  // ── Podium (top 3) ──────────────────────────────────────────────────────
+  if (standings.length >= 1) {
+    const podOrder = standings.length >= 3
+      ? [standings[1], standings[0], standings[2]]
+      : standings.length === 2
+        ? [null, standings[0], standings[1]]
+        : [null, standings[0], null];
+    const podClass = ['p2', 'p1', 'p3'];
+    const podScore = ['1.7rem', '2.1rem', '1.7rem'];
+
+    html += `<div class="podium-wrap">`;
+    podOrder.forEach((s, col) => {
+      if (!s) { html += `<div></div>`; return; }
+      const realIdx = standings.indexOf(s);
+      const driverNames = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ');
+      html += `
+        <div class="podium-slot ${podClass[col]}${s.is_me ? ' me-slot' : ''}" onclick="togglePodiumDetail(${s.user_id})">
+          <div style="font-size:1.4rem;line-height:1">${medals[realIdx]}</div>
+          <div class="podium-score ${colors[realIdx]}" style="font-size:${podScore[col]}" data-score="${s.score}">0</div>
+          <div class="podium-name">${s.username}${s.is_me ? ' ★' : ''}</div>
+          <div class="podium-picks">${driverNames || 'Ingen valg'}</div>
+        </div>`;
+    });
+    html += `</div>`;
+
+    // Podium expandable detail
+    html += `<div class="podium-detail" id="podium-detail" style="display:none"></div>`;
+  }
+
+  // ── Rows 4+ ─────────────────────────────────────────────────────────────
+  const rest = standings.slice(3);
+  html += rest.map((s, j) => {
+    const i = j + 3;
     const driverNames = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ');
-    const roundLabel = is_live
-      ? `<span style="color:var(--cyan);font-size:0.72rem">(R${last_round} · pågår)</span>`
-      : `<span style="color:var(--muted);font-size:0.72rem">(Runde ${last_round})</span>`;
-    const picks = driverNames ? `${driverNames} ${roundLabel}` : 'Ingen valg';
-
+    const picks = driverNames ? `${driverNames} ${roundLabel()}` : 'Ingen valg';
+    const scoreStyle = s.is_me ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : 'color:var(--text)';
     const isExpanded = expandedLbUsers.has(s.user_id);
-    const historyRows = lbHistory ? buildUserHistoryHTML(s.user_id) : '';
 
     return `
       <div class="lb-row ${s.is_me ? 'me' : ''}" style="flex-direction:column;align-items:stretch;padding:0;cursor:pointer" onclick="toggleLbUser(${s.user_id})">
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
-          ${rankLabel}
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px">
+          <div class="lb-rank" style="color:var(--muted)">#${i + 1}</div>
           <div class="lb-info">
             <div class="lb-name ${s.is_me ? 'me' : ''}">${s.username}${s.is_me ? ' (deg)' : ''}</div>
             <div class="lb-picks">${picks}</div>
           </div>
-          <div class="lb-score ${i < 3 ? colors[i] : ''}" style="${scoreStyle}">${s.score}</div>
-          <div style="color:var(--muted);font-size:0.75rem;margin-left:2px">${isExpanded ? '▲' : '▼'}</div>
+          <div class="lb-score" style="${scoreStyle}" data-score="${s.score}">0</div>
+          <div style="color:var(--muted);font-size:0.75rem;flex-shrink:0">${isExpanded ? '▲' : '▼'}</div>
         </div>
-        ${isExpanded && historyRows ? `
+        ${isExpanded ? `
           <div style="border-top:1px solid var(--border);padding:10px 14px;background:rgba(0,0,0,0.2)">
-            ${historyRows}
+            ${buildUserHistoryHTML(s.user_id)}
           </div>` : ''}
       </div>`;
-  }).join('') || '<div class="empty">Ingen spillere ennå</div>';
+  }).join('');
+
+  el.innerHTML = html || '<div class="empty">Ingen spillere ennå</div>';
+
+  // Animate all scores
+  el.querySelectorAll('[data-score]').forEach(scoreEl => {
+    animateScore(scoreEl, parseFloat(scoreEl.dataset.score));
+  });
+}
+
+function togglePodiumDetail(userId) {
+  const detailEl = document.getElementById('podium-detail');
+  if (!detailEl) return;
+  if (podiumDetailUser === userId) {
+    podiumDetailUser = null;
+    detailEl.style.display = 'none';
+    return;
+  }
+  podiumDetailUser = userId;
+  const historyHTML = buildUserHistoryHTML(userId);
+  const s = lbStandings.find(x => x.user_id === userId);
+  const name = s ? s.username : '';
+  detailEl.style.display = 'block';
+  detailEl.innerHTML = `
+    <div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;font-weight:700;letter-spacing:0.06em">${name.toUpperCase()} — HISTORIKK</div>
+    ${historyHTML}`;
 }
 
 function buildUserHistoryHTML(userId) {
@@ -550,34 +658,7 @@ function toggleLbUser(userId) {
   } else {
     expandedLbUsers.add(userId);
   }
-  // Re-render standings without re-fetching
-  const lbList = document.getElementById('lb-list');
-  // Trigger a lightweight re-render using cached data
-  const rows = lbList.querySelectorAll('.lb-row');
-  rows.forEach(row => {
-    const onclick = row.getAttribute('onclick');
-    const match = onclick && onclick.match(/toggleLbUser\((\d+)\)/);
-    if (!match) return;
-    const uid = parseInt(match[1]);
-    const isExpanded = expandedLbUsers.has(uid);
-    const arrow = row.querySelector('[data-arrow]') || row.querySelector('div[style*="margin-left"]');
-    if (arrow) arrow.textContent = isExpanded ? '▲' : '▼';
-
-    const detailEl = row.children[1]; // second child is the expandable section
-    if (isExpanded) {
-      if (!detailEl || !detailEl.style.borderTop) {
-        const historyRows = buildUserHistoryHTML(uid);
-        if (historyRows) {
-          const div = document.createElement('div');
-          div.style.cssText = 'border-top:1px solid var(--border);padding:10px 14px;background:rgba(0,0,0,0.2)';
-          div.innerHTML = historyRows;
-          row.appendChild(div);
-        }
-      }
-    } else {
-      if (row.children.length > 1) row.removeChild(row.lastChild);
-    }
-  });
+  if (lbStandings.length) renderStandings(lbStandings, lbLastRound, lbIsLive);
 }
 
 function renderLbDrivers() {
@@ -714,7 +795,7 @@ async function toggleLock() {
     const data = await api('/api/admin/lock', { method: 'POST' });
     picksLocked = data.picks_locked;
     updateLockButton();
-    updateHeaderPill(picksLocked);
+    updateHeaderPill(picksLocked, headerNextRace, headerDeadline);
     showToast(picksLocked ? 'Valg låst 🔒' : 'Valg åpnet ✓', 'success');
   } catch (err) {
     showToast(err.message, 'error');
@@ -1042,8 +1123,26 @@ async function loadCalendar() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function updateHeaderPill(locked) {
-  document.getElementById('header-pill').style.display = locked ? 'block' : 'none';
+function updateHeaderPill(locked, nextRace, deadline) {
+  const pill = document.getElementById('header-pill');
+  if (locked) {
+    pill.style.display = 'block';
+    pill.classList.remove('open');
+    pill.textContent = nextRace?.name ? `🔒 ${nextRace.name}` : '🔒 RACE WEEKEND';
+    if (headerCountdownInterval) { clearInterval(headerCountdownInterval); headerCountdownInterval = null; }
+  } else if (nextRace?.name) {
+    pill.style.display = 'block';
+    pill.classList.add('open');
+    if (deadline) {
+      startHeaderCountdown(deadline, nextRace.name);
+    } else {
+      pill.textContent = nextRace.name;
+    }
+  } else {
+    pill.style.display = 'none';
+    pill.classList.remove('open');
+    if (headerCountdownInterval) { clearInterval(headerCountdownInterval); headerCountdownInterval = null; }
+  }
 }
 
 function formatDate(dateStr) {

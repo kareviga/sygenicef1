@@ -88,6 +88,12 @@
     text-shadow: 0 0 6px var(--pink);
     animation: pulse 2s infinite;
   }
+  .race-pill.open {
+    background: rgba(0,255,136,0.08);
+    border-color: var(--green);
+    color: var(--green);
+    text-shadow: 0 0 6px var(--green);
+  }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
   /* ── BOTTOM NAV ── */
@@ -204,6 +210,14 @@
   .driver-hf .hf { color: var(--yellow); text-shadow: 0 0 6px var(--yellow); }
 
   /* ── LEADERBOARD ── */
+  @keyframes mePulse {
+    0%,100% { box-shadow: 0 0 12px rgba(0,255,255,0.15); }
+    50%      { box-shadow: 0 0 28px rgba(0,255,255,0.45), 0 0 48px rgba(0,255,255,0.12); }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position:  400px 0; }
+  }
   .lb-row {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 14px;
@@ -214,20 +228,58 @@
   .lb-row.me {
     background: rgba(0,255,255,0.05);
     border-color: var(--cyan);
-    box-shadow: 0 0 12px rgba(0,255,255,0.15);
+    animation: mePulse 3s ease-in-out infinite;
   }
   .lb-rank {
     font-family: 'VT323', monospace;
     font-size: 1.6rem; font-weight: 400; width: 36px; text-align: center;
   }
-  .lb-info { flex: 1; }
-  .lb-name { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.05em; }
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lb-name.me { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
   .lb-picks { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
   .lb-score { font-family: 'VT323', monospace; font-size: 2rem; font-weight: 400; }
   .gold   { color: #FFD700; text-shadow: 0 0 10px #FFD700; }
   .silver { color: #C0C0C0; text-shadow: 0 0 8px #C0C0C0; }
   .bronze { color: #FF6622; text-shadow: 0 0 8px #FF6622; }
+
+  /* rank-delta badges */
+  .rank-up { color: var(--green); font-size: 0.7rem; font-weight: 700; }
+  .rank-dn { color: var(--pink);  font-size: 0.7rem; font-weight: 700; }
+
+  /* skeleton shimmer */
+  .skel-row {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; margin-bottom: 6px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .skel {
+    background: linear-gradient(90deg, var(--card2) 25%, rgba(61,0,96,0.6) 50%, var(--card2) 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 3px;
+  }
+
+  /* ── PODIUM ── */
+  .podium-wrap { display: grid; grid-template-columns: 1fr 1.12fr 1fr; gap: 6px; margin-bottom: 6px; align-items: end; }
+  .podium-slot {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 6px 12px;
+    text-align: center; cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .podium-slot:active { transform: scale(0.97); }
+  .podium-slot.p1 { background: rgba(255,215,0,0.06); border-color: rgba(255,215,0,0.5); box-shadow: 0 0 18px rgba(255,215,0,0.15); padding-top: 16px; }
+  .podium-slot.p2 { background: rgba(192,192,192,0.04); border-color: rgba(192,192,192,0.35); }
+  .podium-slot.p3 { background: rgba(255,102,34,0.04); border-color: rgba(255,102,34,0.35); }
+  .podium-slot.me-slot { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .podium-score { font-family: 'VT323', monospace; font-weight: 400; line-height: 1; }
+  .podium-name { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 4px 0 2px; }
+  .podium-picks { font-size: 0.65rem; color: var(--muted); }
+  .podium-detail {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px; margin-bottom: 6px;
+  }
 
   /* ── RACE LOG ── */
   .race-row {
@@ -274,7 +326,7 @@
     border-radius: 6px; padding: 12px;
     position: relative; cursor: pointer; transition: all 0.15s;
   }
-  .pick-card:hover { border-color: var(--purple); }
+  .pick-card:hover { border-color: var(--purple); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(155,0,255,0.25); }
   .pick-card.selected {
     border-color: var(--cyan);
     background: rgba(0,255,255,0.06);
@@ -292,6 +344,13 @@
     color: var(--muted); letter-spacing: 0.05em;
   }
   .pick-hf .mult { color: var(--yellow); text-shadow: 0 0 6px var(--yellow); }
+  .hcx-pill {
+    display: inline-block; padding: 0 6px;
+    background: rgba(255,230,0,0.1); border: 1px solid rgba(255,230,0,0.3);
+    border-radius: 3px; font-family: 'VT323', monospace;
+    color: var(--yellow); text-shadow: 0 0 6px var(--yellow);
+    font-size: 1rem; letter-spacing: 0.05em;
+  }
 
   /* ── NEXT RACE ── */
   .next-race {
