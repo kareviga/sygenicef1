@@ -634,6 +634,23 @@
       <div class="page-sub" id="lb-sub">Ligastabell</div>
     </div>
     <div style="margin-top:16px" id="lb-list"></div>
+
+    <div style="margin-top:24px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <div class="section-label" style="margin:0">SJÅFØRER</div>
+      <div style="display:flex;gap:6px">
+        <button id="lb-sort-wdc" onclick="setLbDriverSort('wdc')" style="
+          border:1px solid var(--yellow);background:rgba(255,230,0,0.08);color:var(--yellow);
+          padding:3px 10px;border-radius:3px;font-family:'VT323',monospace;font-size:0.95rem;
+          cursor:pointer;letter-spacing:0.05em;opacity:1
+        ">WDC pts</button>
+        <button id="lb-sort-hcx" onclick="setLbDriverSort('hcx')" style="
+          border:1px solid var(--purple);background:rgba(155,0,255,0.08);color:var(--purple);
+          padding:3px 10px;border-radius:3px;font-family:'VT323',monospace;font-size:0.95rem;
+          cursor:pointer;letter-spacing:0.05em;opacity:0.4
+        ">HCx</button>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px" id="lb-drivers"></div>
   </div>
 
   <!-- ── POENGSYSTEM ── -->

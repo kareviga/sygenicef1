@@ -161,6 +161,39 @@ router.get('/races/:raceId/detail', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/league/picks-history
+router.get('/picks-history', requireAuth, async (req, res) => {
+  try {
+    const [allScores, races, drivers] = await Promise.all([
+      db.all('user_race_scores'),
+      db.find('races', r => r.is_completed && !r.cancelled),
+      db.all('drivers'),
+    ]);
+
+    const driverMap = {};
+    for (const d of drivers) driverMap[d.id] = d.short_name;
+
+    const sortedRaces = races.sort((a, b) => a.round - b.round);
+
+    const history = {};
+    for (const s of allScores) {
+      if (!history[s.user_id]) history[s.user_id] = {};
+      history[s.user_id][s.race_id] = {
+        score: s.score,
+        d1: driverMap[s.driver1_id] || s.driver1_name || '—',
+        d2: driverMap[s.driver2_id] || s.driver2_name || '—',
+      };
+    }
+
+    res.json({
+      races: sortedRaces.map(r => ({ id: r.id, round: r.round, name: r.name })),
+      history,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/league/settings
 router.get('/settings', requireAuth, async (req, res) => {
   try {

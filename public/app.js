@@ -13,6 +13,10 @@ let raceDetailCache = {};
 let countdownInterval = null;
 let calendarRaces = [];
 let expandedCalRounds = new Set();
+let lbHistory = null;
+let expandedLbUsers = new Set();
+let lbDrivers = [];
+let lbDriverSort = 'wdc';
 
 // ── API helper ───────────────────────────────────────────────────────────
 async function api(path, options = {}) {
@@ -449,41 +453,174 @@ async function confirmSavePicks() {
 // ── Tabell ────────────────────────────────────────────────────────────────
 async function loadStandings() {
   try {
-    const data = await api('/api/league/standings');
+    const [data, historyData, driversData] = await Promise.all([
+      api('/api/league/standings'),
+      api('/api/league/picks-history'),
+      api('/api/picks/drivers'),
+    ]);
+
+    lbHistory = historyData;
+    lbDrivers = driversData;
+
     const { standings, last_round, is_live } = data;
 
     document.getElementById('lb-sub').textContent = last_round
       ? `${standings.length} spillere · ${is_live ? `R${last_round} pågår` : `Førervalg runde ${last_round}`}`
       : `${standings.length} spillere`;
 
-    const medals = ['🥇', '🥈', '🥉'];
-    const colors = ['gold', 'silver', 'bronze'];
+    renderStandings(standings, last_round, is_live);
+    renderLbDrivers();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
 
-    document.getElementById('lb-list').innerHTML = standings.map((s, i) => {
-      const rankLabel = i < 3
-        ? `<div class="lb-rank ${colors[i]}">${medals[i]}</div>`
-        : `<div class="lb-rank" style="color:var(--muted)">#${i + 1}</div>`;
+function renderStandings(standings, last_round, is_live) {
+  const medals = ['🥇', '🥈', '🥉'];
+  const colors = ['gold', 'silver', 'bronze'];
 
-      const scoreStyle = s.is_me && i >= 3 ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : '';
-      const driverNames = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ');
-      const roundLabel = is_live
-        ? `<span style="color:var(--cyan);font-size:0.72rem">(R${last_round} · pågår)</span>`
-        : `<span style="color:var(--muted);font-size:0.72rem">(Runde ${last_round})</span>`;
-      const picks = driverNames ? `${driverNames} ${roundLabel}` : 'Ingen valg';
+  document.getElementById('lb-list').innerHTML = standings.map((s, i) => {
+    const rankLabel = i < 3
+      ? `<div class="lb-rank ${colors[i]}">${medals[i]}</div>`
+      : `<div class="lb-rank" style="color:var(--muted)">#${i + 1}</div>`;
 
-      return `
-        <div class="lb-row ${s.is_me ? 'me' : ''}">
+    const scoreStyle = s.is_me && i >= 3 ? 'color:var(--cyan);text-shadow:0 0 8px var(--cyan)' : '';
+    const driverNames = [s.driver1?.short_name, s.driver2?.short_name].filter(Boolean).join(' · ');
+    const roundLabel = is_live
+      ? `<span style="color:var(--cyan);font-size:0.72rem">(R${last_round} · pågår)</span>`
+      : `<span style="color:var(--muted);font-size:0.72rem">(Runde ${last_round})</span>`;
+    const picks = driverNames ? `${driverNames} ${roundLabel}` : 'Ingen valg';
+
+    const isExpanded = expandedLbUsers.has(s.user_id);
+    const historyRows = lbHistory ? buildUserHistoryHTML(s.user_id) : '';
+
+    return `
+      <div class="lb-row ${s.is_me ? 'me' : ''}" style="flex-direction:column;align-items:stretch;padding:0;cursor:pointer" onclick="toggleLbUser(${s.user_id})">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
           ${rankLabel}
           <div class="lb-info">
             <div class="lb-name ${s.is_me ? 'me' : ''}">${s.username}${s.is_me ? ' (deg)' : ''}</div>
             <div class="lb-picks">${picks}</div>
           </div>
           <div class="lb-score ${i < 3 ? colors[i] : ''}" style="${scoreStyle}">${s.score}</div>
-        </div>`;
-    }).join('') || '<div class="empty">Ingen spillere ennå</div>';
-  } catch (err) {
-    showToast(err.message, 'error');
+          <div style="color:var(--muted);font-size:0.75rem;margin-left:2px">${isExpanded ? '▲' : '▼'}</div>
+        </div>
+        ${isExpanded && historyRows ? `
+          <div style="border-top:1px solid var(--border);padding:10px 14px;background:rgba(0,0,0,0.2)">
+            ${historyRows}
+          </div>` : ''}
+      </div>`;
+  }).join('') || '<div class="empty">Ingen spillere ennå</div>';
+}
+
+function buildUserHistoryHTML(userId) {
+  if (!lbHistory) return '';
+  const { races, history } = lbHistory;
+  const userHistory = history[userId] || {};
+  if (races.length === 0) return '<div style="font-size:0.78rem;color:var(--muted)">Ingen fullførte runder ennå</div>';
+
+  return `
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+      <thead>
+        <tr style="color:var(--muted)">
+          <th style="text-align:left;padding:3px 0;font-weight:600">Runde</th>
+          <th style="text-align:left;padding:3px 6px;font-weight:600">Sjåfør 1</th>
+          <th style="text-align:left;padding:3px 6px;font-weight:600">Sjåfør 2</th>
+          <th style="text-align:right;padding:3px 0;font-weight:600;color:var(--cyan)">HC pts</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${races.map(r => {
+          const entry = userHistory[r.id];
+          return `
+            <tr style="border-top:1px solid rgba(61,0,96,0.4)">
+              <td style="padding:5px 0;color:var(--muted)">R${r.round}</td>
+              <td style="padding:5px 6px;color:var(--text)">${entry?.d1 || '—'}</td>
+              <td style="padding:5px 6px;color:var(--text)">${entry?.d2 || '—'}</td>
+              <td style="padding:5px 0;text-align:right;font-family:'VT323',monospace;font-size:1rem;color:var(--cyan)">${entry ? entry.score.toFixed(1) : '—'}</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function toggleLbUser(userId) {
+  if (expandedLbUsers.has(userId)) {
+    expandedLbUsers.delete(userId);
+  } else {
+    expandedLbUsers.add(userId);
   }
+  // Re-render standings without re-fetching
+  const lbList = document.getElementById('lb-list');
+  // Trigger a lightweight re-render using cached data
+  const rows = lbList.querySelectorAll('.lb-row');
+  rows.forEach(row => {
+    const onclick = row.getAttribute('onclick');
+    const match = onclick && onclick.match(/toggleLbUser\((\d+)\)/);
+    if (!match) return;
+    const uid = parseInt(match[1]);
+    const isExpanded = expandedLbUsers.has(uid);
+    const arrow = row.querySelector('[data-arrow]') || row.querySelector('div[style*="margin-left"]');
+    if (arrow) arrow.textContent = isExpanded ? '▲' : '▼';
+
+    const detailEl = row.children[1]; // second child is the expandable section
+    if (isExpanded) {
+      if (!detailEl || !detailEl.style.borderTop) {
+        const historyRows = buildUserHistoryHTML(uid);
+        if (historyRows) {
+          const div = document.createElement('div');
+          div.style.cssText = 'border-top:1px solid var(--border);padding:10px 14px;background:rgba(0,0,0,0.2)';
+          div.innerHTML = historyRows;
+          row.appendChild(div);
+        }
+      }
+    } else {
+      if (row.children.length > 1) row.removeChild(row.lastChild);
+    }
+  });
+}
+
+function renderLbDrivers() {
+  const el = document.getElementById('lb-drivers');
+  if (!el || lbDrivers.length === 0) return;
+
+  const sorted = [...lbDrivers].sort((a, b) =>
+    lbDriverSort === 'hcx' ? b.handicap - a.handicap : b.championship_pts - a.championship_pts
+  );
+
+  // Update sort button styles
+  document.getElementById('lb-sort-wdc').style.opacity = lbDriverSort === 'wdc' ? '1' : '0.4';
+  document.getElementById('lb-sort-hcx').style.opacity = lbDriverSort === 'hcx' ? '1' : '0.4';
+
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:5px 0;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">#</th>
+          <th style="text-align:left;padding:5px 6px;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">Sjåfør</th>
+          <th style="text-align:right;padding:5px 6px;color:var(--yellow);font-family:'VT323',monospace;font-size:0.95rem">WDC pts</th>
+          <th style="text-align:right;padding:5px 0;color:var(--purple);font-family:'VT323',monospace;font-size:0.95rem">HCx</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sorted.map((d, i) => `
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:6px 0;color:var(--muted)">${i + 1}</td>
+            <td style="padding:6px 6px">
+              <span style="color:${d.team_color};font-weight:700">#${d.number}</span>
+              <span style="margin-left:5px">${d.short_name}</span>
+              <div style="font-size:0.72rem;color:var(--muted)">${d.team}</div>
+            </td>
+            <td style="padding:6px 6px;text-align:right;color:var(--yellow);font-family:'VT323',monospace;font-size:1.05rem">${d.championship_pts}</td>
+            <td style="padding:6px 0;text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${d.handicap}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function setLbDriverSort(mode) {
+  lbDriverSort = mode;
+  renderLbDrivers();
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────
