@@ -11,9 +11,6 @@ let expandedRaceIds = new Set();
 let raceDetailSort = { col: 'race_pts', dir: 'desc' };
 let raceDetailCache = {};
 let countdownInterval = null;
-let headerCountdownInterval = null;
-let headerDeadline = null;
-let headerNextRace = null;
 let calendarRaces = [];
 let expandedCalRounds = new Set();
 let lbHistory = null;
@@ -149,24 +146,6 @@ function startCountdown(deadlineDate) {
   countdownInterval = setInterval(tick, 60000);
 }
 
-function startHeaderCountdown(deadlineDate, raceName) {
-  if (headerCountdownInterval) clearInterval(headerCountdownInterval);
-  function tick() {
-    const pill = document.getElementById('header-pill');
-    if (!pill) return;
-    const diff = new Date(deadlineDate) - new Date();
-    if (diff <= 0) { pill.textContent = raceName; return; }
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor((diff % 86400000) / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    if (d > 0)      pill.textContent = `${raceName} · ${d}d ${h}t`;
-    else if (h > 0) pill.textContent = `${raceName} · ${h}t ${m}m`;
-    else            pill.textContent = `${raceName} · ${m}m ${s}s`;
-  }
-  tick();
-  headerCountdownInterval = setInterval(tick, 1000);
-}
 
 function animateScore(el, target) {
   const duration = 700;
@@ -628,24 +607,28 @@ function buildUserHistoryHTML(userId) {
   if (races.length === 0) return '<div style="font-size:0.78rem;color:var(--muted)">Ingen fullførte runder ennå</div>';
 
   return `
-    <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+    <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
       <thead>
         <tr style="color:var(--muted)">
           <th style="text-align:left;padding:3px 0;font-weight:600">Runde</th>
-          <th style="text-align:left;padding:3px 6px;font-weight:600">Fører 1</th>
-          <th style="text-align:left;padding:3px 6px;font-weight:600">Fører 2</th>
-          <th style="text-align:right;padding:3px 0;font-weight:600;color:var(--cyan)">HC pts</th>
+          <th style="text-align:left;padding:3px 4px;font-weight:600">Fører 1</th>
+          <th style="text-align:right;padding:3px 4px;font-weight:600;color:var(--cyan)">HC pts</th>
+          <th style="text-align:left;padding:3px 4px;font-weight:600">Fører 2</th>
+          <th style="text-align:right;padding:3px 4px;font-weight:600;color:var(--cyan)">HC pts</th>
+          <th style="text-align:right;padding:3px 0;font-weight:600;color:var(--green)">Totalt</th>
         </tr>
       </thead>
       <tbody>
         ${races.map(r => {
-          const entry = userHistory[r.id];
+          const e = userHistory[r.id];
           return `
             <tr style="border-top:1px solid rgba(61,0,96,0.4)">
               <td style="padding:5px 0;color:var(--muted)">R${r.round}</td>
-              <td style="padding:5px 6px;color:var(--text)">${entry?.d1 || '—'}</td>
-              <td style="padding:5px 6px;color:var(--text)">${entry?.d2 || '—'}</td>
-              <td style="padding:5px 0;text-align:right;font-family:'VT323',monospace;font-size:1rem;color:var(--cyan)">${entry ? entry.score.toFixed(1) : '—'}</td>
+              <td style="padding:5px 4px;color:var(--text)">${e?.d1 || '—'}</td>
+              <td style="padding:5px 4px;text-align:right;font-family:'VT323',monospace;font-size:0.95rem;color:var(--cyan)">${e ? e.d1_hc_pts.toFixed(1) : '—'}</td>
+              <td style="padding:5px 4px;color:var(--text)">${e?.d2 || '—'}</td>
+              <td style="padding:5px 4px;text-align:right;font-family:'VT323',monospace;font-size:0.95rem;color:var(--cyan)">${e ? e.d2_hc_pts.toFixed(1) : '—'}</td>
+              <td style="padding:5px 0;text-align:right;font-family:'VT323',monospace;font-size:1rem;color:var(--green)">${e ? e.score.toFixed(1) : '—'}</td>
             </tr>`;
         }).join('')}
       </tbody>
@@ -665,13 +648,16 @@ function renderLbDrivers() {
   const el = document.getElementById('lb-drivers');
   if (!el || lbDrivers.length === 0) return;
 
-  const sorted = [...lbDrivers].sort((a, b) =>
-    lbDriverSort === 'hcx' ? b.handicap - a.handicap : b.championship_pts - a.championship_pts
-  );
+  const sorted = [...lbDrivers].sort((a, b) => {
+    if (lbDriverSort === 'hcx')     return b.handicap - a.handicap;
+    if (lbDriverSort === 'hcpts')   return b.hc_pts_season - a.hc_pts_season;
+    return b.championship_pts - a.championship_pts;
+  });
 
-  // Update sort button styles
-  document.getElementById('lb-sort-wdc').style.opacity = lbDriverSort === 'wdc' ? '1' : '0.4';
-  document.getElementById('lb-sort-hcx').style.opacity = lbDriverSort === 'hcx' ? '1' : '0.4';
+  [['lb-sort-wdc','wdc'], ['lb-sort-hcx','hcx'], ['lb-sort-hcpts','hcpts']].forEach(([id, mode]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.opacity = lbDriverSort === mode ? '1' : '0.4';
+  });
 
   el.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
@@ -680,7 +666,8 @@ function renderLbDrivers() {
           <th style="text-align:left;padding:5px 0;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">#</th>
           <th style="text-align:left;padding:5px 6px;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">Fører</th>
           <th style="text-align:right;padding:5px 6px;color:var(--yellow);font-family:'VT323',monospace;font-size:0.95rem">WDC pts</th>
-          <th style="text-align:right;padding:5px 0;color:var(--purple);font-family:'VT323',monospace;font-size:0.95rem">HCx</th>
+          <th style="text-align:right;padding:5px 6px;color:var(--purple);font-family:'VT323',monospace;font-size:0.95rem">HCx</th>
+          <th style="text-align:right;padding:5px 0;color:var(--cyan);font-family:'VT323',monospace;font-size:0.95rem">HC pts</th>
         </tr>
       </thead>
       <tbody>
@@ -693,7 +680,8 @@ function renderLbDrivers() {
               <div style="font-size:0.72rem;color:var(--muted)">${d.team}</div>
             </td>
             <td style="padding:6px 6px;text-align:right;color:var(--yellow);font-family:'VT323',monospace;font-size:1.05rem">${d.championship_pts}</td>
-            <td style="padding:6px 0;text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${d.handicap}</td>
+            <td style="padding:6px 6px;text-align:right;color:var(--purple);font-family:'VT323',monospace;font-size:1.05rem">×${d.handicap}</td>
+            <td style="padding:6px 0;text-align:right;color:var(--cyan);font-family:'VT323',monospace;font-size:1.05rem">${d.hc_pts_season ?? '—'}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
@@ -1123,27 +1111,7 @@ async function loadCalendar() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function updateHeaderPill(locked, nextRace, deadline) {
-  const pill = document.getElementById('header-pill');
-  if (locked) {
-    pill.style.display = 'block';
-    pill.classList.remove('open');
-    pill.textContent = nextRace?.name ? `🔒 ${nextRace.name}` : '🔒 RACE WEEKEND';
-    if (headerCountdownInterval) { clearInterval(headerCountdownInterval); headerCountdownInterval = null; }
-  } else if (nextRace?.name) {
-    pill.style.display = 'block';
-    pill.classList.add('open');
-    if (deadline) {
-      startHeaderCountdown(deadline, nextRace.name);
-    } else {
-      pill.textContent = nextRace.name;
-    }
-  } else {
-    pill.style.display = 'none';
-    pill.classList.remove('open');
-    if (headerCountdownInterval) { clearInterval(headerCountdownInterval); headerCountdownInterval = null; }
-  }
-}
+function updateHeaderPill() {}
 
 function formatDate(dateStr) {
   if (!dateStr) return '';

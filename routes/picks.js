@@ -16,17 +16,41 @@ function enrichDriver(d, leaderPts, maxHandicap) {
 // GET /api/picks/drivers
 router.get('/drivers', requireAuth, async (req, res) => {
   try {
-    const [drivers, races] = await Promise.all([
+    const [drivers, races, allResults] = await Promise.all([
       db.all('drivers'),
       db.all('races'),
+      db.all('race_results'),
     ]);
     drivers.sort((a, b) => b.championship_pts - a.championship_pts);
     const leaderPts = drivers[0]?.championship_pts || 0;
+    const completedRaces = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => a.round - b.round);
     const nextRace = races.filter(r => !r.cancelled && !r.is_completed).sort((a, b) => a.round - b.round)[0] || null;
-    const lastRace = races.filter(r => r.is_completed && !r.cancelled).sort((a, b) => b.round - a.round)[0] || null;
+    const lastRace = completedRaces[completedRaces.length - 1] || null;
     const maxRound = nextRace?.round || (lastRace?.round ? lastRace.round + 1 : 1);
     const max = maxRound * 10;
-    res.json(drivers.map(d => enrichDriver(d, leaderPts, max)));
+
+    // Compute cumulative HC pts per driver across all completed races
+    const hcPtsTotals = {};
+    for (const race of completedRaces) {
+      const prevIds = new Set(completedRaces.filter(r => r.round < race.round).map(r => r.id));
+      const prevCum = {};
+      for (const r of allResults.filter(r => prevIds.has(r.race_id))) {
+        prevCum[r.driver_id] = (prevCum[r.driver_id] || 0) + r.points;
+      }
+      const prevLeader = Math.max(...Object.values(prevCum), 0);
+      const raceMax = race.round * 10;
+      for (const r of allResults.filter(r => r.race_id === race.id)) {
+        const hc = prevLeader <= 0 ? 1.0
+          : (prevCum[r.driver_id] || 0) <= 0 ? raceMax
+          : Math.min(prevLeader / (prevCum[r.driver_id] || 1), raceMax);
+        hcPtsTotals[r.driver_id] = +((hcPtsTotals[r.driver_id] || 0) + r.points * hc).toFixed(2);
+      }
+    }
+
+    res.json(drivers.map(d => ({
+      ...enrichDriver(d, leaderPts, max),
+      hc_pts_season: +(hcPtsTotals[d.id] || 0).toFixed(1),
+    })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

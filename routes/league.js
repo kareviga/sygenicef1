@@ -178,10 +178,14 @@ router.get('/picks-history', requireAuth, async (req, res) => {
     const history = {};
     for (const s of allScores) {
       if (!history[s.user_id]) history[s.user_id] = {};
+      const hc1 = +(s.driver1_race_pts * s.driver1_hc).toFixed(1);
+      const hc2 = +(s.driver2_race_pts * s.driver2_hc).toFixed(1);
       history[s.user_id][s.race_id] = {
         score: s.score,
         d1: driverMap[s.driver1_id] || s.driver1_name || '—',
         d2: driverMap[s.driver2_id] || s.driver2_name || '—',
+        d1_hc_pts: hc1,
+        d2_hc_pts: hc2,
       };
     }
 

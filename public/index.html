@@ -78,23 +78,6 @@
     letter-spacing: 0.02em;
   }
 
-  .race-pill {
-    background: rgba(255,0,170,0.12);
-    border: 1px solid var(--pink);
-    color: var(--pink);
-    font-family: 'VT323', monospace;
-    font-size: 0.95rem;
-    padding: 2px 10px; border-radius: 3px; letter-spacing: 0.1em;
-    text-shadow: 0 0 6px var(--pink);
-    animation: pulse 2s infinite;
-  }
-  .race-pill.open {
-    background: rgba(0,255,136,0.08);
-    border-color: var(--green);
-    color: var(--green);
-    text-shadow: 0 0 6px var(--green);
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
   /* ── BOTTOM NAV ── */
   .bottom-nav {
@@ -614,7 +597,6 @@
 
   <header class="header">
     <div class="logo">sygeniceF1</div>
-    <div id="header-pill" class="race-pill" style="display:none">⬛ RACE WEEKEND</div>
     <div style="display:flex;align-items:center;gap:10px">
       <div id="header-user" style="color:var(--sub);font-size:0.82rem;font-family:'VT323',monospace;font-size:1rem;letter-spacing:0.06em"></div>
       <div style="color:var(--muted);font-size:0.8rem;cursor:pointer;letter-spacing:0.05em" onclick="logout()">[ UT ]</div>
@@ -707,6 +689,11 @@
           padding:3px 10px;border-radius:3px;font-family:'VT323',monospace;font-size:0.95rem;
           cursor:pointer;letter-spacing:0.05em;opacity:0.4
         ">HCx</button>
+        <button id="lb-sort-hcpts" onclick="setLbDriverSort('hcpts')" style="
+          border:1px solid var(--cyan);background:rgba(0,255,255,0.08);color:var(--cyan);
+          padding:3px 10px;border-radius:3px;font-family:'VT323',monospace;font-size:0.95rem;
+          cursor:pointer;letter-spacing:0.05em;opacity:0.4
+        ">HC pts</button>
       </div>
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px" id="lb-drivers"></div>
