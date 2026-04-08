@@ -361,7 +361,7 @@ function sortRaceDetail(col) {
   renderTeamRaces();
 }
 
-// ── Sjåfører / Valg ───────────────────────────────────────────────────────
+// ── Førere / Valg ────────────────────────────────────────────────────────
 async function loadDrivers() {
   try {
     const [drivers, picks, settings] = await Promise.all([
@@ -419,7 +419,7 @@ function renderPicksGrid() {
   if (picksLocked) {
     saveBtn.textContent = '🔒 VALG LÅST — RACE WEEKEND';
   } else if (count < 2) {
-    saveBtn.textContent = `VELG ${2 - count} SJÅFØR${2 - count === 1 ? '' : 'ER'} TIL`;
+    saveBtn.textContent = `VELG ${2 - count} FØRER${2 - count === 1 ? '' : 'E'} TIL`;
   } else {
     saveBtn.textContent = 'LAGRE VALG';
   }
@@ -632,8 +632,8 @@ function buildUserHistoryHTML(userId) {
       <thead>
         <tr style="color:var(--muted)">
           <th style="text-align:left;padding:3px 0;font-weight:600">Runde</th>
-          <th style="text-align:left;padding:3px 6px;font-weight:600">Sjåfør 1</th>
-          <th style="text-align:left;padding:3px 6px;font-weight:600">Sjåfør 2</th>
+          <th style="text-align:left;padding:3px 6px;font-weight:600">Fører 1</th>
+          <th style="text-align:left;padding:3px 6px;font-weight:600">Fører 2</th>
           <th style="text-align:right;padding:3px 0;font-weight:600;color:var(--cyan)">HC pts</th>
         </tr>
       </thead>
@@ -678,7 +678,7 @@ function renderLbDrivers() {
       <thead>
         <tr>
           <th style="text-align:left;padding:5px 0;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">#</th>
-          <th style="text-align:left;padding:5px 6px;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">Sjåfør</th>
+          <th style="text-align:left;padding:5px 6px;color:var(--muted);font-family:'VT323',monospace;font-size:0.95rem">Fører</th>
           <th style="text-align:right;padding:5px 6px;color:var(--yellow);font-family:'VT323',monospace;font-size:0.95rem">WDC pts</th>
           <th style="text-align:right;padding:5px 0;color:var(--purple);font-family:'VT323',monospace;font-size:0.95rem">HCx</th>
         </tr>
@@ -727,7 +727,7 @@ async function loadAdmin() {
 
     document.getElementById('driver-pts-form').innerHTML = `
       <table class="admin-table">
-        <thead><tr><th>#</th><th>Sjåfør</th><th>Team</th><th>VM-pts</th></tr></thead>
+        <thead><tr><th>#</th><th>Fører</th><th>Team</th><th>VM-pts</th></tr></thead>
         <tbody>${drivers.map(d => `
           <tr>
             <td style="color:${d.team_color}">${d.number}</td>
@@ -829,7 +829,7 @@ async function loadRaceResultsForm() {
     </p>
     <table class="admin-table" style="margin-bottom:16px">
       <thead><tr>
-        <th>#</th><th>Sjåfør</th>
+        <th>#</th><th>Fører</th>
         ${isSprint ? '<th style="color:var(--cyan)">Race</th><th style="color:var(--yellow)">Sprint</th>' : '<th>Pts</th>'}
         <th style="color:var(--muted)">Pos</th><th style="color:var(--muted)">DNF</th>
       </tr></thead>
@@ -889,7 +889,7 @@ async function autoFetchResults(raceId, round, year) {
 
     statusEl.innerHTML = `
       <div class="swap-banner">
-        ✓ Hentet! ${data.matched.length} sjåfører matchet${sprintNote}
+        ✓ Hentet! ${data.matched.length} førere matchet${sprintNote}
         ${unmatchedNote}
       </div>`;
 
@@ -1205,8 +1205,8 @@ async function loadBets() {
 
     // Populate driver dropdowns
     const opts = drivers.map(d => `<option value="${d.id}">${d.short_name}</option>`).join('');
-    document.getElementById('bet-driver-above').innerHTML = '<option value="">Sjåfør A</option>' + opts;
-    document.getElementById('bet-driver-below').innerHTML = '<option value="">Sjåfør B</option>' + opts;
+    document.getElementById('bet-driver-above').innerHTML = '<option value="">Fører A</option>' + opts;
+    document.getElementById('bet-driver-below').innerHTML = '<option value="">Fører B</option>' + opts;
 
     // Lock banner
     const settingsData = await api('/api/league/settings');
@@ -1306,8 +1306,8 @@ async function submitBet() {
   const driver_below_id = parseInt(document.getElementById('bet-driver-below').value);
   const points = parseFloat(document.getElementById('bet-points').value);
 
-  if (!driver_above_id || !driver_below_id) { showToast('Velg to sjåfører', 'error'); return; }
-  if (driver_above_id === driver_below_id)   { showToast('Velg to forskjellige sjåfører', 'error'); return; }
+  if (!driver_above_id || !driver_below_id) { showToast('Velg to førere', 'error'); return; }
+  if (driver_above_id === driver_below_id)   { showToast('Velg to forskjellige førere', 'error'); return; }
   if (!points || points <= 0)                { showToast('Skriv inn poeng å satse', 'error'); return; }
   if (!betsData?.next_race)                  { showToast('Ingen kommende race å bette på', 'error'); return; }
 

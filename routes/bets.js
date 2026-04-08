@@ -90,7 +90,7 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Alle felt er påkrevd' });
     }
     if (driver_above_id === driver_below_id) {
-      return res.status(400).json({ error: 'Velg to forskjellige sjåfører' });
+      return res.status(400).json({ error: 'Velg to forskjellige førere' });
     }
     const pts = parseFloat(points);
     if (!pts || pts <= 0) return res.status(400).json({ error: 'Poeng må være større enn 0' });

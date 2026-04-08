@@ -635,10 +635,10 @@
     </div>
 
     <div id="no-picks-msg" class="info-banner" style="display:none">
-      ⚡ Du har ikke valgt sjåfører ennå — gå til Sjåfører-fanen!
+      ⚡ Du har ikke valgt førere ennå — gå til Førere-fanen!
     </div>
 
-    <div class="section-label">Dine sjåfører</div>
+    <div class="section-label">Dine førere</div>
     <div class="driver-row" id="team-drivers">
       <div class="driver-card" style="border-left-color:var(--border)">
         <div class="driver-num" style="color:var(--muted)">?</div>
@@ -657,11 +657,11 @@
     <div id="team-next"><div class="empty">—</div></div>
   </div>
 
-  <!-- ── SJÅFØRER ── -->
+  <!-- ── FØRERE ── -->
   <div class="screen" id="s-drivers">
     <div style="margin-bottom:4px">
-      <div class="page-title">SJÅFØRER</div>
-      <div class="page-sub">Velg 2 sjåfører til laget ditt</div>
+      <div class="page-title">FØRERE</div>
+      <div class="page-sub">Velg 2 førere til laget ditt</div>
     </div>
 
     <div id="picks-lock-banner" class="lock-banner" style="display:none">
@@ -695,7 +695,7 @@
     <div style="margin-top:16px" id="lb-list"></div>
 
     <div style="margin-top:24px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-      <div class="section-label" style="margin:0">SJÅFØRER</div>
+      <div class="section-label" style="margin:0">FØRERE</div>
       <div style="display:flex;gap:6px">
         <button id="lb-sort-wdc" onclick="setLbDriverSort('wdc')" style="
           border:1px solid var(--yellow);background:rgba(255,230,0,0.08);color:var(--yellow);
@@ -721,22 +721,22 @@
 
     <div class="section-label">Konsept</div>
     <div class="points-block">
-      <p>Alle spillere velger <strong style="color:var(--cyan)">2 sjåfører</strong> fra hele F1-feltet. Det er ingen begrensninger på hvem du velger — men systemet straffer deg for å velge favoritter!</p>
-      <p>Jo bedre en sjåfør gjør det i VM-sammendraget, desto <strong style="color:var(--pink)">lavere multiplikator</strong> får du for den sjåføren.</p>
+      <p>Alle spillere velger <strong style="color:var(--cyan)">2 førere</strong> fra hele F1-feltet. Det er ingen begrensninger på hvem du velger — men systemet straffer deg for å velge favoritter!</p>
+      <p>Jo bedre en fører gjør det i VM-sammendraget, desto <strong style="color:var(--pink)">lavere multiplikator</strong> får du for den føreren.</p>
     </div>
 
     <div class="section-label">HCx — Handicap-multiplikatoren</div>
     <div class="points-block">
       <p>Multiplikatoren beregnes automatisk etter hvert race:</p>
       <div class="formula">
-        Multiplikator = Leder-VM-poeng ÷ Sjåførens VM-poeng
+        Multiplikator = Leder-VM-poeng ÷ Førerens VM-poeng
       </div>
       <p><strong style="color:var(--yellow)">Eksempel:</strong> Verstappen leder med 250 poeng. Hülkenberg har 12 poeng.</p>
       <div class="formula">
         Hülkenberg-multiplikator = 250 ÷ 12 = ×20.8
       </div>
       <p>Velger du Hülkenberg og han scorer 10 poeng i et race, får du 10 × 20.8 = <strong style="color:var(--green)">208 poeng!</strong></p>
-      <p style="font-size:0.82rem;color:var(--muted);margin-top:4px">Maksimal multiplikator øker gjennom sesongen: <strong style="color:var(--sub)">runde N × 10</strong> (f.eks. ×30 etter runde 3, ×120 etter runde 12). Sjåfører med 0 VM-poeng tildeles 1 poeng i beregningen (deling på 0 er ikke mulig), og vil alltid motta maks-multiplikatoren.</p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:4px">Maksimal multiplikator øker gjennom sesongen: <strong style="color:var(--sub)">runde N × 10</strong> (f.eks. ×30 etter runde 3, ×120 etter runde 12). Førere med 0 VM-poeng tildeles 1 poeng i beregningen (deling på 0 er ikke mulig), og vil alltid motta maks-multiplikatoren.</p>
     </div>
 
     <div class="section-label">F1-poeng per race</div>
@@ -759,7 +759,7 @@
     <div class="section-label">Din racepoengsum</div>
     <div class="points-block">
       <div class="formula">
-        Dine poeng = (Sjåfør 1 race-pts × Multiplikator 1) + (Sjåfør 2 race-pts × Multiplikator 2)
+        Dine poeng = (Fører 1 race-pts × Multiplikator 1) + (Fører 2 race-pts × Multiplikator 2)
       </div>
       <p>Multiplene oppdateres etter hvert race basert på oppdatert VM-stilling. Sesongpoengene er summen av alle race.</p>
     </div>
@@ -767,15 +767,15 @@
     <div class="section-label">Strategi</div>
     <div class="points-block">
       <p>🏆 <strong style="color:var(--yellow)">Favorittstrategi:</strong> Velg de to førerne som leder WDC for stabilitet, men med lav multiplikator.</p>
-      <p>🎲 <strong style="color:var(--pink)">Underdogstrategi:</strong> Velg midtfelt-sjåfører med høy multiplikator — ett godt resultat kan gi enorme poeng!</p>
-      <p>⚡ <strong style="color:var(--green)">Bytter:</strong> Du kan bytte sjåfører inntil <strong>10 ganger</strong> i løpet av sesongen — men ikke i race-helgen.</p>
+      <p>🎲 <strong style="color:var(--pink)">Underdogstrategi:</strong> Velg midtfelt-førere med høy multiplikator — ett godt resultat kan gi enorme poeng!</p>
+      <p>⚡ <strong style="color:var(--green)">Bytter:</strong> Du kan bytte førere inntil <strong>10 ganger</strong> i løpet av sesongen — men ikke i race-helgen.</p>
     </div>
 
     <div class="section-label">Emils bettinghule</div>
     <div class="points-block">
       <p>For den som trenger litt ekstra spenning kan du utfordre andre spillere i <strong style="color:var(--pink)">Emils bettinghule</strong>.</p>
-      <p>Velg to sjåfører og utfordre en annen spiller — du tar den ene sjåføren, motstanderen tar den andre. Sett innsatsen i <strong style="color:var(--cyan)">ligaroeng du allerede har tjent</strong> opp gjennom sesongen. Ingen poeng, ingen bet.</p>
-      <p>Bettet gjelder kun <strong style="color:var(--yellow)">det kommende racet</strong>. Når race-helgen starter låses bettet — ingen endringer er mulige. Den sjåføren som scorer flest HC-poeng i det racet vinner innsatsen.</p>
+      <p>Velg to førere og utfordre en annen spiller — du tar den ene føreren, motstanderen tar den andre. Sett innsatsen i <strong style="color:var(--cyan)">ligaroeng du allerede har tjent</strong> opp gjennom sesongen. Ingen poeng, ingen bet.</p>
+      <p>Bettet gjelder kun <strong style="color:var(--yellow)">det kommende racet</strong>. Når race-helgen starter låses bettet — ingen endringer er mulige. Den føreren som <strong style="color:var(--green)">krysser målstreken først</strong> av de to vinner innsatsen. DNF taper mot en som fullfører.</p>
       <p style="font-size:0.82rem;color:var(--muted);margin-top:6px">Bettet avgjøres automatisk når raceresultatene er lagt inn. Uavgjort gir innsatsen tilbake til begge.</p>
     </div>
   </div>
@@ -796,17 +796,17 @@
     <!-- Create bet -->
     <div class="section-label">Lag bet</div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px;margin-bottom:12px">
-      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:10px">Velg to sjåfører og sett hvor mange poeng du satser. Den andre brukeren satser mot.</div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:10px">Velg to førere — din fører mot motstanderens. Den som krysser mål først vinner. Sett innsatsen i ligaroeng.</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <select id="bet-driver-above" style="
           flex:1;min-width:110px;background:var(--card2);border:1px solid var(--border);
           color:var(--text);padding:7px 10px;border-radius:4px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;
-        "><option value="">Sjåfør A</option></select>
+        "><option value="">Fører A</option></select>
         <span style="color:var(--muted);font-family:'VT323',monospace;font-size:1.1rem;white-space:nowrap">slår</span>
         <select id="bet-driver-below" style="
           flex:1;min-width:110px;background:var(--card2);border:1px solid var(--border);
           color:var(--text);padding:7px 10px;border-radius:4px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;
-        "><option value="">Sjåfør B</option></select>
+        "><option value="">Fører B</option></select>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input id="bet-points" type="number" min="1" placeholder="Poeng" style="
@@ -853,14 +853,14 @@
 
     <div class="section-label">Legg inn raceresultater</div>
     <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">
-      Velg et race og skriv inn F1-poeng per sjåfør. Bare skriv inn for sjåfører som scoret poeng. Poengene beregnes automatisk for alle spillere.
+      Velg et race og skriv inn F1-poeng per fører. Bare skriv inn for førere som scoret poeng. Poengene beregnes automatisk for alle spillere.
     </p>
     <select class="race-select" id="admin-race-select" onchange="loadRaceResultsForm()">
       <option value="">— Velg race —</option>
     </select>
     <div id="race-results-form"></div>
 
-    <div class="section-label">VM-poeng per sjåfør</div>
+    <div class="section-label">VM-poeng per fører</div>
     <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">
       Oppdateres automatisk når du legger inn raceresultater. Kan overstyres manuelt ved behov.
     </p>
@@ -879,7 +879,7 @@
     </button>
     <button class="nav-item" id="nav-drivers" onclick="showScreen('drivers')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>
-      Sjåfører
+      Førere
     </button>
     <button class="nav-item" id="nav-lb" onclick="showScreen('lb')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
