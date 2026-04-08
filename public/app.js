@@ -161,10 +161,9 @@ async function loadTeam() {
     const noPicks = !picks.driver1 && !picks.driver2;
     document.getElementById('no-picks-msg').style.display = noPicks ? 'block' : 'none';
 
-    if (!noPicks) {
-      document.getElementById('team-drivers').innerHTML =
-        [picks.driver1, picks.driver2].filter(Boolean).map(driverCardHTML).join('');
-    }
+    document.getElementById('team-drivers').innerHTML = noPicks
+      ? ''
+      : [picks.driver1, picks.driver2].filter(Boolean).map(driverCardHTML).join('');
 
     teamRacesData = races;
     renderTeamRaces();
