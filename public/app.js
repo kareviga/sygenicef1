@@ -437,22 +437,32 @@ function savePicks() {
   }
 
   // Build swap rows summary
-  const removedDrivers = removedIds.map(id => allDrivers.find(d => d.id === id));
+  const isFirstPick = currentIds.length === 0;
   const addedDrivers = addedIds.map(id => allDrivers.find(d => d.id === id));
 
-  document.getElementById('confirm-summary').innerHTML = removedDrivers.map((d, i) => `
-    <div class="confirm-swap-row">
-      <span class="confirm-driver-out">#${d.number} ${d.short_name}</span>
-      <span class="confirm-arrow">→</span>
-      <span class="confirm-driver-in">${addedDrivers[i].short_name} #${addedDrivers[i].number}</span>
-    </div>
-  `).join('');
-
-  const swapsLeft = 10 - (currentPicks.swaps_used || 0);
-  const swapsAfter = swapsLeft - changesCount;
-  document.getElementById('confirm-cost-text').innerHTML =
-    `Dette bruker <strong>${changesCount} bytte${changesCount > 1 ? 'r' : ''}</strong>. ` +
-    `Du vil ha <strong>${swapsAfter} av 10</strong> bytter igjen.`;
+  if (isFirstPick) {
+    document.getElementById('confirm-summary').innerHTML = addedDrivers.map(d => `
+      <div class="confirm-swap-row">
+        <span class="confirm-driver-in" style="text-align:left">#${d.number} ${d.short_name}</span>
+      </div>
+    `).join('');
+    document.getElementById('confirm-cost-text').innerHTML =
+      `Dette er ditt <strong>første valg</strong> og bruker ingen bytter. Du har fortsatt <strong>10 av 10</strong> bytter igjen.`;
+  } else {
+    const removedDrivers = removedIds.map(id => allDrivers.find(d => d.id === id));
+    document.getElementById('confirm-summary').innerHTML = removedDrivers.map((d, i) => `
+      <div class="confirm-swap-row">
+        <span class="confirm-driver-out">#${d.number} ${d.short_name}</span>
+        <span class="confirm-arrow">→</span>
+        <span class="confirm-driver-in">${addedDrivers[i].short_name} #${addedDrivers[i].number}</span>
+      </div>
+    `).join('');
+    const swapsLeft = 10 - (currentPicks.swaps_used || 0);
+    const swapsAfter = swapsLeft - changesCount;
+    document.getElementById('confirm-cost-text').innerHTML =
+      `Dette bruker <strong>${changesCount} bytte${changesCount > 1 ? 'r' : ''}</strong>. ` +
+      `Du vil ha <strong>${swapsAfter} av 10</strong> bytter igjen.`;
+  }
 
   document.getElementById('confirm-modal').style.display = 'flex';
 }
