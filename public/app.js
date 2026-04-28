@@ -998,6 +998,18 @@ async function deleteUser(userId, username) {
   }
 }
 
+async function resetSeason() {
+  if (!confirm('ADVARSEL: Dette nullstiller ALLE picks, bytter, race-resultater, HC-poeng og bets for alle spillere. Er du helt sikker?')) return;
+  if (!confirm('Siste sjanse — dette kan ikke angres. Fortsette?')) return;
+  try {
+    await api('/api/admin/reset-season', { method: 'POST' });
+    showToast('Sesongen er nullstilt', 'success');
+    await loadAdmin();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 // ── Kalender ──────────────────────────────────────────────────────────────
 const RACE_SESSIONS = {
   1:  { fp1:'2026-03-06T00:30:00Z', fp2:'2026-03-06T04:00:00Z', fp3:'2026-03-07T00:30:00Z', quali:'2026-03-07T04:00:00Z', race:'2026-03-08T03:00:00Z' },

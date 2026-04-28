@@ -243,6 +243,45 @@ router.get('/fetch-results', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/reset-season
+router.post('/reset-season', requireAdmin, async (req, res) => {
+  try {
+    // 1. Delete all user race scores
+    await db.delete('user_race_scores', () => true);
+    // 2. Delete all race pick snapshots
+    await db.delete('user_race_picks', () => true);
+    // 3. Delete all race results
+    await db.delete('race_results', () => true);
+    // 4. Reset all races to not completed
+    const races = await db.all('races');
+    for (const race of races) {
+      await db.update('races', r => r.id === race.id, { is_completed: false });
+    }
+    // 5. Reset all user picks (no drivers, no swaps)
+    const users = await db.all('users');
+    for (const user of users) {
+      await db.upsert('user_picks', 'user_id', user.id, {
+        user_id: user.id,
+        driver1_id: null,
+        driver2_id: null,
+        swaps_used: 0,
+        last_updated: new Date().toISOString(),
+      });
+    }
+    // 6. Reset all driver championship pts to 0
+    const drivers = await db.all('drivers');
+    for (const driver of drivers) {
+      await db.update('drivers', d => d.id === driver.id, { championship_pts: 0 });
+    }
+    // 7. Delete all bets
+    await db.delete('bets', () => true);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/settings
 router.get('/settings', requireAdmin, async (req, res) => {
   try {
