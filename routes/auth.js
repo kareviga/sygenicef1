@@ -46,6 +46,30 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// PUT /api/auth/change-password
+router.put('/change-password', async (req, res) => {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password) return res.status(400).json({ error: 'Begge felt er påkrevd' });
+    if (new_password.length < 4) return res.status(400).json({ error: 'Nytt passord må være minst 4 tegn' });
+
+    const user = await db.findOne('users', u => u.id === payload.id);
+    if (!user) return res.status(401).json({ error: 'Bruker ikke funnet' });
+    if (!bcrypt.compareSync(current_password, user.password_hash)) {
+      return res.status(401).json({ error: 'Feil nåværende passord' });
+    }
+
+    const hash = bcrypt.hashSync(new_password, 10);
+    await db.update('users', u => u.id === payload.id, { password_hash: hash });
+    res.json({ success: true });
+  } catch {
+    res.status(401).json({ error: 'Ugyldig eller utløpt sesjon' });
+  }
+});
+
 // GET /api/auth/me
 router.get('/me', async (req, res) => {
   const header = req.headers.authorization;

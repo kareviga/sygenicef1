@@ -598,7 +598,7 @@
   <header class="header">
     <div class="logo">sygeniceF1</div>
     <div style="display:flex;align-items:center;gap:10px">
-      <div id="header-user" style="color:var(--sub);font-size:0.82rem;font-family:'VT323',monospace;font-size:1rem;letter-spacing:0.06em"></div>
+      <div id="header-user" onclick="openPwModal()" style="color:var(--sub);font-family:'VT323',monospace;font-size:1rem;letter-spacing:0.06em;cursor:pointer;padding:2px 6px;border-radius:3px;transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='transparent'"></div>
       <div style="color:var(--muted);font-size:0.8rem;cursor:pointer;letter-spacing:0.05em" onclick="logout()">[ UT ]</div>
     </div>
   </header>
@@ -888,6 +888,19 @@
     <div style="display:flex;gap:12px;margin-top:18px">
       <button class="btn" onclick="document.getElementById('confirm-modal').style.display='none'" style="flex:1">AVBRYT</button>
       <button class="btn btn-cyan" onclick="confirmSavePicks()" style="flex:1">BEKREFT</button>
+    </div>
+  </div>
+</div>
+
+<div id="pw-modal" class="confirm-modal-overlay" style="display:none" onclick="if(event.target===this)closePwModal()">
+  <div class="confirm-modal">
+    <div class="confirm-modal-title">ENDRE PASSORD</div>
+    <input class="input" id="pw-current" type="password" placeholder="Nåværende passord" autocomplete="current-password" style="margin-bottom:10px">
+    <input class="input" id="pw-new" type="password" placeholder="Nytt passord (min. 4 tegn)" autocomplete="new-password" style="margin-bottom:10px">
+    <input class="input" id="pw-new2" type="password" placeholder="Gjenta nytt passord" autocomplete="new-password">
+    <div style="display:flex;gap:12px;margin-top:18px">
+      <button class="btn" onclick="closePwModal()" style="flex:1">AVBRYT</button>
+      <button class="btn btn-cyan" onclick="submitChangePassword()" style="flex:1">LAGRE</button>
     </div>
   </div>
 </div>

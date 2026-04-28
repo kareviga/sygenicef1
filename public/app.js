@@ -89,6 +89,37 @@ function saveSession(data) {
   localStorage.setItem('f1_user', JSON.stringify(currentUser));
 }
 
+function openPwModal() {
+  document.getElementById('pw-current').value = '';
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-new2').value = '';
+  document.getElementById('pw-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('pw-current').focus(), 50);
+}
+
+function closePwModal() {
+  document.getElementById('pw-modal').style.display = 'none';
+}
+
+async function submitChangePassword() {
+  const current = document.getElementById('pw-current').value;
+  const nw = document.getElementById('pw-new').value;
+  const nw2 = document.getElementById('pw-new2').value;
+  if (!current || !nw || !nw2) { showToast('Fyll ut alle felt', 'error'); return; }
+  if (nw !== nw2) { showToast('Nye passord stemmer ikke overens', 'error'); return; }
+  if (nw.length < 4) { showToast('Nytt passord må være minst 4 tegn', 'error'); return; }
+  try {
+    await api('/api/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ current_password: current, new_password: nw }),
+    });
+    closePwModal();
+    showToast('Passord oppdatert ✓', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 function logout() {
   token = null; currentUser = null;
   localStorage.removeItem('f1_token');
