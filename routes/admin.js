@@ -243,6 +243,29 @@ router.get('/fetch-results', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/recalculate-driver-pts
+// Recomputes championship_pts for all drivers from stored race_results only.
+// Does NOT touch user scores, picks, or anything else.
+router.post('/recalculate-driver-pts', requireAdmin, async (req, res) => {
+  try {
+    const [drivers, completedRaces, allResults] = await Promise.all([
+      db.all('drivers'),
+      db.find('races', r => r.is_completed && !r.cancelled),
+      db.all('race_results'),
+    ]);
+    const completedIds = new Set(completedRaces.map(r => r.id));
+    for (const driver of drivers) {
+      const total = allResults
+        .filter(r => r.driver_id === driver.id && completedIds.has(r.race_id))
+        .reduce((s, r) => s + r.points, 0);
+      await db.update('drivers', d => d.id === driver.id, { championship_pts: total });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/admin/reset-season
 router.post('/reset-season', requireAdmin, async (req, res) => {
   try {

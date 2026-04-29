@@ -1029,6 +1029,16 @@ async function deleteUser(userId, username) {
   }
 }
 
+async function recalcDriverPts() {
+  try {
+    await api('/api/admin/recalculate-driver-pts', { method: 'POST' });
+    showToast('VM-poeng rekalkulert fra lagrede resultater ✓', 'success');
+    await loadAdmin();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 async function resetSeason() {
   if (!confirm('ADVARSEL: Dette nullstiller ALLE picks, bytter, race-resultater, HC-poeng og bets for alle spillere. Er du helt sikker?')) return;
   if (!confirm('Siste sjanse — dette kan ikke angres. Fortsette?')) return;

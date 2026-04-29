@@ -833,7 +833,10 @@
       Oppdateres automatisk når du legger inn raceresultater. Kan overstyres manuelt ved behov.
     </p>
     <div id="driver-pts-form"></div>
-    <button class="btn" style="margin-top:12px;width:auto;padding:8px 20px;font-size:1rem" onclick="saveDriverPts()">LAGRE POENG</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn" style="width:auto;padding:8px 20px;font-size:1rem" onclick="saveDriverPts()">LAGRE POENG</button>
+      <button class="btn" style="width:auto;padding:8px 20px;font-size:1rem;border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,255,0.06)" onclick="recalcDriverPts()">↺ REKALKULER FRA RESULTATER</button>
+    </div>
 
     <div class="section-label">Registrerte spillere</div>
     <div id="admin-users-list"></div>
